@@ -7,6 +7,21 @@ This README documents a working local Kubernetes lab on an M2 MacBook Air using:
 - `kubectl` installed inside the devcontainer
 - No global Kubernetes tooling required on the host
 
+## EKS + Coder Learning Track
+
+This repo now includes a practical path for learning AWS EKS in the context of a Coder deployment:
+
+- [EKS + Coder Learning Plan](docs/eks-coder-learning-plan.md)
+- [Local hello Kubernetes workload](examples/local/hello-k8s.yaml)
+- [Local Coder Helm values](examples/coder/values-local.yaml)
+- [EKS Coder Helm values starter](examples/coder/values-eks.yaml)
+- [EKS Auto Mode `eksctl` starter](examples/eks/eksctl-auto-mode.yaml)
+- [Terraform local Kubernetes practice](examples/terraform/local-kubernetes)
+- [Terraform Coder template practice](examples/terraform/coder-template-kubernetes)
+- [Terraform EKS starter](examples/terraform/eks-starter)
+
+Start locally, get fluent with the Kubernetes primitives, practice expressing the same ideas in Terraform, then move the mental model into EKS where networking, identity, storage, load balancing, and cost become the important architecture questions.
+
 ---
 
 ## Architecture Overview
