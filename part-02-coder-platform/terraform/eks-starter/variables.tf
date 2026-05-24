@@ -57,6 +57,12 @@ variable "node_desired_size" {
   default     = 2
 }
 
+variable "enable_nat_gateway" {
+  description = "Whether to create a NAT Gateway for private node egress. Keep false for the first low-cost learning cluster."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags applied to AWS resources."
   type        = map(string)

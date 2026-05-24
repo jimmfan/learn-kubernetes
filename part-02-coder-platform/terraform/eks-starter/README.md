@@ -5,17 +5,17 @@ This is a small but real EKS lab. It creates paid AWS infrastructure:
 - VPC across 2-3 availability zones
 - public subnets tagged for internet-facing load balancers
 - private subnets tagged for internal load balancers
-- single NAT gateway for private node egress
+- optional NAT gateway for private node egress
 - EKS control plane
 - EKS managed node group
 - core EKS add-ons
 - cluster creator admin access
 
-It is intentionally conservative. It does not yet install Coder, RDS, ExternalDNS, cert-manager, the AWS Load Balancer Controller, or production-grade observability.
+It is intentionally simple. It does not yet install Coder, RDS, ExternalDNS, cert-manager, the AWS Load Balancer Controller, Karpenter, EKS Auto Mode, or production-grade observability.
 
 ## Cost Warning
 
-This creates billable resources. The EKS control plane, NAT gateway, EC2 worker nodes, EBS volumes, and any load balancers you create from Kubernetes can all cost money.
+This creates billable resources. The EKS control plane, EC2 worker nodes, EBS volumes, public IPv4 addresses, and any load balancers you create from Kubernetes can all cost money. NAT Gateway is disabled by default because it is a common learning-lab cost trap.
 
 Destroy the lab when you are done:
 
@@ -59,7 +59,7 @@ terraform output -raw update_kubeconfig_command
 - Kubernetes version: `1.33`
 - Node type: `t3.medium`
 - Desired nodes: `2`
-- NAT gateways: `1`
+- NAT gateway: disabled by default
 - VPC CIDR: `10.20.0.0/16`
 
 ## Why Managed Node Groups
@@ -72,6 +72,32 @@ That is useful for learning:
 - how private subnets and NAT affect node egress
 - how Kubernetes Services discover load-balancer subnets
 - where IAM, EC2, and EKS responsibilities meet
+
+## NAT Gateway Choice
+
+The first learning cluster keeps NAT Gateway off and places the managed node group in public subnets. That is not the final production shape, but it keeps the AWS bill easier to understand while you learn.
+
+Enable NAT only when you specifically want private nodes with outbound internet access:
+
+```bash
+terraform plan -var='enable_nat_gateway=true'
+```
+
+NAT Gateway has an hourly charge plus data processing charges, so destroy the lab when you are done.
+
+## EKS Smoke Test
+
+Before installing Coder or ARC, prove the cluster works:
+
+```bash
+aws sts get-caller-identity
+aws eks update-kubeconfig --region us-east-1 --name coder-learning
+kubectl get nodes
+kubectl get pods -A
+kubectl auth can-i get pods -A
+kubectl apply -f ../../../part-01-local-kubernetes/manifests/hello-k8s.yaml
+kubectl get all -n hello
+```
 
 ## Load Balancers
 

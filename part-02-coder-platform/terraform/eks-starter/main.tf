@@ -30,8 +30,10 @@ module "vpc" {
   public_subnets  = local.public_subnets
   private_subnets = local.private_subnets
 
-  enable_nat_gateway = true
-  single_nat_gateway = true
+  enable_nat_gateway = var.enable_nat_gateway
+  single_nat_gateway = var.enable_nat_gateway
+
+  public_subnet_map_public_ip_on_launch = true
 
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -70,7 +72,7 @@ module "eks" {
   }
 
   vpc_id                   = module.vpc.vpc_id
-  subnet_ids               = module.vpc.private_subnets
+  subnet_ids               = var.enable_nat_gateway ? module.vpc.private_subnets : module.vpc.public_subnets
   control_plane_subnet_ids = module.vpc.private_subnets
 
   eks_managed_node_groups = {

@@ -1,12 +1,12 @@
 # Kubernetes, EKS, Coder, and ARC Learning Lab
 
-This repo is organized as a three-part hands-on learning path:
+This repo is organized as a three-part, 4-week hands-on ramp-up:
 
 1. [Part 01: Local Kubernetes](part-01-local-kubernetes)
 2. [Part 02: Coder Platform](part-02-coder-platform)
 3. [Part 03: ARC Runners](part-03-arc-runners)
 
-The project plans in [project-plans](project-plans) are the curriculum. The `part-*` folders are the working areas where the related manifests, Terraform, Helm values, and future exercises live.
+The project plans in [project-plans](project-plans) are the curriculum. The `part-*` folders are the working areas where the related manifests, Terraform, Helm values, and future exercises live. The goal is practical readiness for Kubernetes, EKS, Coder, and GitHub ARC runner scale sets, not a generic Kubernetes course.
 
 ## Learning Path
 
@@ -21,11 +21,11 @@ Part 02: Coder Platform
   Coder locally
   Coder on Kubernetes
   Coder templates as Terraform
-  EKS basics for Coder
+  managed-node-group EKS basics for Coder
 
 Part 03: ARC Runners
   GitHub runner inventory
-  Actions Runner Controller locally
+  GitHub-supported ARC runner scale sets locally
   custom runner images
   ARC on EKS
 ```
@@ -108,6 +108,8 @@ After that, move to:
 Part 01 should cost `$0` because it runs on Docker Desktop.
 
 Parts 02 and 03 can create paid AWS resources when you move into EKS. EKS control planes, NAT gateways, EC2 worker nodes, EBS volumes, public IPv4 addresses, and load balancers can all cost real money. Treat EKS clusters as short-lived learning infrastructure unless you intentionally want them running.
+
+For the first EKS implementation, start with managed node groups. Avoid Karpenter, EKS Auto Mode, advanced autoscaling, and NAT Gateway until the basic Coder or ARC workflow is working and you intentionally want to study those layers.
 
 ## Common Local Fix
 

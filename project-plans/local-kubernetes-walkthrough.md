@@ -2,6 +2,8 @@
 
 This walkthrough builds basic `kubectl` muscle memory against the local Docker Desktop Kubernetes cluster.
 
+This is Part 1 of the 4-week ramp-up. Keep it focused on the Kubernetes behaviors needed later for Coder, EKS, and ARC.
+
 ## Verify The Cluster
 
 ```bash
@@ -10,6 +12,18 @@ kubectl get nodes
 ```
 
 You should see the `docker-desktop` node.
+
+## Apple Silicon Checks
+
+Run these once when the devcontainer starts:
+
+```bash
+uname -m
+docker buildx ls
+kubectl get nodes -o wide
+```
+
+On a MacBook Air M2, expect `arm64` or `aarch64` somewhere in the chain. For this repo, downloaded CLIs and Docker images should support `linux/arm64` when they run inside the devcontainer or cluster.
 
 ## Create A Namespace
 
@@ -85,6 +99,21 @@ Shows common resources:
 - Services
 - Deployments
 - ReplicaSets
+
+## Debugging Checklist
+
+Use this same checklist in every track before guessing:
+
+```bash
+kubectl get pods -A
+kubectl get events -A --sort-by=.lastTimestamp
+kubectl describe pod <pod> -n <namespace>
+kubectl logs <pod> -n <namespace>
+kubectl exec -it <pod> -n <namespace> -- sh
+kubectl get svc -A
+kubectl get ingress -A
+kubectl get pvc -A
+```
 
 ## Describe A Deployment
 
@@ -205,3 +234,11 @@ The main differences in EKS are surrounding AWS infrastructure:
 - IRSA / EKS Pod Identity
 - EBS CSI driver
 - Cluster logging and monitoring
+
+## What I Should Be Able To Explain
+
+- Deployment vs ReplicaSet vs Pod
+- Service vs port-forward
+- Labels and selectors
+- Namespace isolation
+- How to debug a failing pod using events, `describe`, and logs

@@ -43,6 +43,37 @@ part-01-local-kubernetes/
    terraform apply
    ```
 
+## Apple Silicon Checks
+
+```bash
+uname -m
+docker buildx ls
+kubectl get nodes -o wide
+```
+
+On the MacBook Air M2, make sure images and downloaded binaries support `linux/arm64` when they run in the devcontainer or cluster.
+
+## Debugging Checklist
+
+```bash
+kubectl get pods -A
+kubectl get events -A --sort-by=.lastTimestamp
+kubectl describe pod <pod> -n <namespace>
+kubectl logs <pod> -n <namespace>
+kubectl exec -it <pod> -n <namespace> -- sh
+kubectl get svc -A
+kubectl get ingress -A
+kubectl get pvc -A
+```
+
+## What I Should Be Able To Explain
+
+- Deployment vs ReplicaSet vs Pod
+- Service vs port-forward
+- Labels and selectors
+- Namespace isolation
+- How to debug a failing pod
+
 ## So What?
 
 This is the zero-cost foundation. EKS, Coder, and ARC all use the same Kubernetes API concepts: pods get scheduled, services find pods through labels, controllers reconcile desired state, and events explain failures.

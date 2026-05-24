@@ -2,6 +2,23 @@
 
 Goal: become useful on the Coder workstream now, while learning platform concepts that transfer to ARC later.
 
+Scope: keep this to a practical 4-week ramp-up. Do not turn it into a generic Kubernetes course; learn only the Kubernetes, EKS, Helm, and Terraform pieces needed to run Coder safely.
+
+## Core Mental Model
+
+```text
+Coder control plane/server
+  -> manages templates
+  -> templates are Terraform
+  -> Terraform creates Kubernetes-backed workspace resources
+  -> workspace pods run on the cluster
+```
+
+Coder has two Terraform layers:
+
+- Platform Terraform answers "where does Coder run?"
+- Template Terraform answers "what gets created for one developer workspace?"
+
 ## Phase 1: Understand Coder Locally
 
 1. Install Coder locally with Docker.
@@ -35,7 +52,9 @@ Primary learning: what Coder actually does for developers.
 
 Primary learning: Coder templates as a product surface.
 
-## Phase 3: Coder On One EC2 Instance
+## Optional Detour: Coder On One EC2 Instance
+
+This is useful AWS practice, but it is not required for the 4-week Kubernetes/EKS/Coder/ARC ramp-up. Skip it if the immediate workstream is Kubernetes-based Coder.
 
 1. Use Terraform to create a small EC2 host.
 2. Install Docker and Coder via user data.
@@ -50,7 +69,7 @@ Primary learning: Coder templates as a product surface.
 
 Primary learning: self-hosting Coder cheaply.
 
-## Phase 4: Coder On Kubernetes
+## Phase 3: Coder On Kubernetes
 
 1. Create a local Kubernetes cluster with Docker Desktop (if `kind` or `k3d` does not work) 
 2. Install Coder with Helm.
@@ -73,22 +92,81 @@ Primary learning: self-hosting Coder cheaply.
 
 Primary learning: how Coder maps developer workspaces onto Kubernetes, and how observability helps explain what the platform is doing.
 
-## Phase 5: Coder On EKS
+## Debugging Checklist
+
+Run this before guessing whether the problem is Helm, Coder, Terraform, or Kubernetes:
+
+```bash
+kubectl get pods -A
+kubectl get events -A --sort-by=.lastTimestamp
+kubectl describe pod <pod> -n <namespace>
+kubectl logs <pod> -n <namespace>
+kubectl exec -it <pod> -n <namespace> -- sh
+kubectl get svc -A
+kubectl get ingress -A
+kubectl get pvc -A
+```
+
+## Phase 4: Coder On EKS
 
 1. Use a small EKS cluster only when needed.
-2. Install Coder with Helm.
-3. Add ingress/load balancer.
-4. Add persistent storage with EBS CSI.
-5. Add reasonable resource limits.
-6. Test one realistic workspace.
-7. Add an optional observability comparison:
+2. Start with managed node groups first.
+3. Avoid Karpenter, EKS Auto Mode, and advanced autoscaling until optional later sections.
+4. Avoid NAT Gateway unless the lab truly needs private subnet egress.
+5. Run the EKS smoke test before installing Coder.
+6. Deploy a simple hello app before installing platform tooling.
+7. Install Coder with Helm.
+8. Add ingress/load balancer.
+9. Add persistent storage with EBS CSI.
+10. Add reasonable resource limits.
+11. Test one realistic workspace.
+12. Add an optional observability comparison:
    - start with self-hosted Prometheus and Grafana in-cluster
    - optionally compare Grafana Cloud free tier
    - optionally compare Amazon Managed Service for Prometheus and Amazon Managed Grafana
    - avoid managed observability until the local setup is understood
-8. Destroy the cluster after labs.
+13. Destroy the cluster after labs.
 
 Primary learning: production-shaped Coder architecture, plus the cost and operational tradeoffs of self-hosted versus managed observability.
+
+## EKS Smoke Test Before Coder
+
+Do this before installing Coder on EKS:
+
+```bash
+aws sts get-caller-identity
+aws eks update-kubeconfig --name <cluster> --region <region>
+kubectl get nodes
+kubectl get pods -A
+kubectl auth can-i get pods -A
+kubectl apply -f part-01-local-kubernetes/manifests/hello-k8s.yaml
+kubectl get all -n hello
+```
+
+If the hello app does not schedule and run, fix the cluster before adding Coder.
+
+## Apple Silicon Checks
+
+On the MacBook Air M2, verify architecture before building images or downloading binaries:
+
+```bash
+uname -m
+docker buildx ls
+kubectl get nodes -o wide
+```
+
+Use Docker images and downloaded CLIs that support `linux/arm64` where they run inside the devcontainer or cluster.
+
+## EKS Cost Traps
+
+- EKS control plane hourly charges
+- NAT Gateway hourly and data processing charges
+- EC2 node hours
+- EBS volumes left behind by PVCs
+- public IPv4 address charges
+- load balancers created by Services or Ingress
+
+Keep the first EKS implementation small: managed node groups, minimal public access, no NAT Gateway unless needed, and fast destroy after the lab.
 
 ## Observability Cost Guidance
 
@@ -390,3 +468,11 @@ Learning checkpoint:
 ## Through-Line
 
 Coder teaches developer environments as a platform: lifecycle, templates, auth, compute isolation, secrets, resource limits, autoscaling, observability, and cost controls.
+
+## What I Should Be Able To Explain
+
+- What runs the Coder control plane
+- What creates workspace pods
+- How templates map to Terraform
+- Where persistent workspace data lives
+- How Kubernetes resources map to developer workspaces
