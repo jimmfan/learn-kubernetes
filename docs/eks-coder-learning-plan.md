@@ -50,8 +50,8 @@ Concepts:
 
 Code:
 
-- Run `examples/local/hello-k8s.yaml`.
-- Rebuild the same app with Terraform in `examples/terraform/local-kubernetes`.
+- Run `part-01-local-kubernetes/manifests/hello-k8s.yaml`.
+- Rebuild the same app with Terraform in `part-01-local-kubernetes/terraform/local-kubernetes`.
 - Break it on purpose by changing an image tag or selector.
 - Fix it using `kubectl describe` and `kubectl get events`.
 - Compare `kubectl apply` with `terraform plan` so you can feel the difference between Kubernetes desired state and Terraform state.
@@ -110,10 +110,10 @@ Concepts:
 
 Code:
 
-- Use `examples/coder/values-local.yaml` as a starting point.
+- Use `part-02-coder-platform/helm-values/values-local.yaml` as a starting point.
 - Install Coder with Helm into a `coder` namespace.
 - Create a simple Kubernetes template in Coder that launches one workspace pod.
-- Study and push `examples/terraform/coder-template-kubernetes` once your local Coder install is ready.
+- Study and push `part-02-coder-platform/terraform/coder-template-kubernetes` once your local Coder install is ready.
 
 Visual:
 
@@ -155,12 +155,12 @@ Concepts:
 
 Code:
 
-- Study `examples/eks/eksctl-auto-mode.yaml`.
-- Study `examples/terraform/eks-starter`.
+- Study `part-02-coder-platform/eks/eksctl-auto-mode.yaml`.
+- Study `part-02-coder-platform/terraform/eks-starter`.
 - Create a throwaway EKS learning cluster only when you are ready to pay for AWS resources.
 - Deploy the same hello app from Phase 1.
 - Compare the local Service behavior with an AWS `LoadBalancer` Service.
-- Translate the `eksctl` cluster into Terraform after you understand the moving parts.
+- Compare the `eksctl` Auto Mode path with the Terraform managed-node-group path.
 
 Visual:
 
@@ -230,7 +230,7 @@ Concepts:
 
 Code:
 
-- Start from `examples/coder/values-eks.yaml`.
+- Start from `part-02-coder-platform/helm-values/values-eks.yaml`.
 - Replace placeholders with your domain, secret names, and database URL secret.
 - Deploy Coder.
 - Create one Kubernetes workspace template.
@@ -344,7 +344,7 @@ For Helm:
 ```bash
 helm repo add coder-v2 https://helm.coder.com/v2
 helm repo update
-helm upgrade --install coder coder-v2/coder --namespace coder --create-namespace -f examples/coder/values-local.yaml
+helm upgrade --install coder coder-v2/coder --namespace coder --create-namespace -f part-02-coder-platform/helm-values/values-local.yaml
 helm status coder -n coder
 helm get values coder -n coder
 ```
@@ -352,7 +352,7 @@ helm get values coder -n coder
 For Terraform:
 
 ```bash
-cd examples/terraform/local-kubernetes
+cd part-01-local-kubernetes/terraform/local-kubernetes
 terraform init
 terraform fmt
 terraform validate
@@ -365,7 +365,7 @@ terraform destroy
 For EKS:
 
 ```bash
-eksctl create cluster -f examples/eks/eksctl-auto-mode.yaml
+eksctl create cluster -f part-02-coder-platform/eks/eksctl-auto-mode.yaml
 aws eks update-kubeconfig --region us-east-1 --name coder-learning
 kubectl get nodes
 ```
@@ -373,11 +373,14 @@ kubectl get nodes
 For Terraform EKS practice:
 
 ```bash
-cd examples/terraform/eks-starter
+cd part-02-coder-platform/terraform/eks-starter
 terraform init
 terraform fmt
 terraform validate
 terraform plan
+terraform apply
+terraform output -raw update_kubeconfig_command
+terraform destroy
 ```
 
 ## What To Read
@@ -405,5 +408,5 @@ EKS and load balancers can cost real money. For learning clusters:
 Cleanup:
 
 ```bash
-eksctl delete cluster -f examples/eks/eksctl-auto-mode.yaml
+eksctl delete cluster -f part-02-coder-platform/eks/eksctl-auto-mode.yaml
 ```

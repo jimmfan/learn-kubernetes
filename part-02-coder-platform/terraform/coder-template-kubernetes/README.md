@@ -5,7 +5,7 @@ This directory is for learning how Coder templates use Terraform to create Kuber
 Use it after Coder is running locally or on EKS:
 
 ```bash
-coder templates push kubernetes-practice -d examples/terraform/coder-template-kubernetes
+coder templates push kubernetes-practice -d part-02-coder-platform/terraform/coder-template-kubernetes
 ```
 
 Practice changes:

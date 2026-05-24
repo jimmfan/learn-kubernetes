@@ -1,0 +1,72 @@
+# Agent Instructions
+
+## User Learning Context
+
+The user is learning AWS and has very limited AWS background. When answering AWS-related questions or making AWS infrastructure changes, explain the relevant AWS concepts and tools in practical terms before or alongside the implementation details.
+
+Assume the user may need explanations for concepts such as:
+
+- VPCs, subnets, route tables, NAT gateways, internet gateways, and security groups
+- IAM users, roles, policies, instance profiles, IRSA, and EKS Pod Identity
+- EC2, EBS, AMIs, user data, and Systems Manager Session Manager
+- EKS clusters, managed node groups, add-ons, Kubernetes networking, load balancers, and ingress
+- Cost drivers such as EKS control plane charges, NAT gateways, EC2 instance hours, EBS volumes, public IPv4 addresses, and load balancers
+
+Keep explanations detailed enough to teach, but still connected to the user's immediate goal. Prefer concrete examples from this repository over abstract cloud theory.
+
+## Local Machine Context
+
+The user is working from a MacBook Air with an Apple M2 chip.
+
+Assume the host machine is Apple Silicon (`arm64`/`aarch64`) unless the user says otherwise. Most project tooling runs inside a Linux devcontainer, so dependency scripts usually need Linux `arm64` binaries, not macOS binaries. When adding or changing setup scripts, Docker images, CLI downloads, or Kubernetes tooling, account for this architecture explicitly.
+
+Practical implications:
+
+- Prefer multi-architecture Docker images that support `linux/arm64`.
+- When downloading CLIs, map architectures carefully:
+  - macOS host: `darwin-arm64` or equivalent
+  - devcontainer: `linux-arm64`, `Linux_arm64`, or `aarch64`, depending on the vendor
+  - x86 fallback: `amd64` or `x86_64`
+- Avoid assuming `linux-amd64` binaries will work.
+- If a tool only publishes x86 images or binaries, call that out and suggest an Apple Silicon-compatible alternative or an explicit emulation path.
+- For Docker Desktop Kubernetes, remember the Kubernetes cluster runs through Docker Desktop on the Mac, while `kubectl`, `helm`, `terraform`, `aws`, `eksctl`, `kind`, and `coder` run from inside the devcontainer.
+
+## Terraform Context
+
+The user has about a year of Terraform experience and understands some basic Terraform functionality. Do not over-explain the absolute basics unless asked, but do explain Terraform concepts when they affect the answer, especially:
+
+- provider configuration
+- modules
+- variables and outputs
+- state
+- data sources
+- resource dependencies
+- `plan` versus `apply`
+- lifecycle and destroy behavior
+- cost or security implications of Terraform-managed resources
+
+When reviewing or changing Terraform, explain both what the Terraform syntax does and what real AWS resources it creates or changes.
+
+## Plan Requests
+
+When the user says to create a "plan", export it as a Markdown file.
+
+- Use a `plans/` folder for general plans.
+- Use a `project-plans/` folder when the plan relates to a new or distinct project.
+- Create the folder if it does not already exist.
+- Use clear, descriptive kebab-case filenames.
+- Make the plan useful as a standalone document, with phases, goals, deliverables, and next steps where appropriate.
+
+If the user only asks to discuss or brainstorm a plan, answer conversationally. If they say "create a plan", "write a plan", "export a plan", or similar, create the `.md` file.
+
+## Communication Style For This Repo
+
+Favor a teaching-oriented style. The user is trying to connect AWS, Terraform, Kubernetes, Coder, and GitHub Actions Runner Controller into a coherent platform engineering skill set.
+
+When possible, make the "so what?" explicit:
+
+- what problem this solves
+- what the user learns from it
+- what it costs or risks
+- how it relates to Coder, EKS, or ARC
+- what the next useful layer would be
