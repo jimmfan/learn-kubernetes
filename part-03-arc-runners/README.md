@@ -1,6 +1,6 @@
 # Part 03: ARC Runners
 
-Plan: [ARC On Kubernetes Project Plan](../project-plans/arc-on-kubernetes-project.md)
+Walkthrough: [ARC Runners Walkthrough](walkthrough.md)
 
 Goal: learn how GitHub Actions Runner Controller runs CI jobs as ephemeral Kubernetes workloads, then map that model to EKS.
 
@@ -26,7 +26,7 @@ part-03-arc-runners/
 
 ## Practice Order
 
-1. Read [the project plan](../project-plans/arc-on-kubernetes-project.md).
+1. Read [the walkthrough](walkthrough.md).
 2. Inventory the current GitHub runner setup before building anything.
 3. Build a local ARC runner scale set lab with a test repo.
 4. Create a custom runner image.

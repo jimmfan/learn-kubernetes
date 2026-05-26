@@ -6,7 +6,7 @@ This repo is organized as a three-part, 4-week hands-on ramp-up:
 2. [Part 02: Coder Platform](part-02-coder-platform)
 3. [Part 03: ARC Runners](part-03-arc-runners)
 
-The project plans in [project-plans](project-plans) are the curriculum. The `part-*` folders are the working areas where the related manifests, Terraform, Helm values, and future exercises live. The goal is practical readiness for Kubernetes, EKS, Coder, and GitHub ARC runner scale sets, not a generic Kubernetes course.
+Each `part-*` folder has its own `walkthrough.md` with the curriculum, plan context, and hands-on path for that part. The same folders also contain the related manifests, Terraform, Helm values, and future exercises. The goal is practical readiness for Kubernetes, EKS, Coder, and GitHub ARC runner scale sets, not a generic Kubernetes course.
 
 ## Learning Path
 
@@ -43,21 +43,19 @@ docs/
   devcontainer-setup.md         setup details and troubleshooting
   eks-coder-learning-plan.md    longer EKS + Coder learning roadmap
 
-project-plans/
-  local-kubernetes-walkthrough.md
-  coder-platform-project.md
-  arc-on-kubernetes-project.md
-
 part-01-local-kubernetes/
+  walkthrough.md                local Kubernetes curriculum and lab guide
   manifests/                    local Kubernetes YAML
   terraform/local-kubernetes/   local Kubernetes Terraform practice
 
 part-02-coder-platform/
+  walkthrough.md                Coder platform curriculum and lab guide
   helm-values/                  Coder Helm values starters
   eks/                          EKS eksctl starter config
   terraform/                    Coder template and EKS starter labs
 
 part-03-arc-runners/
+  walkthrough.md                ARC curriculum and lab guide
   kubernetes/                   future ARC local lab
   terraform/                    future ARC EKS lab
   runner-images/                future custom runner images
@@ -90,9 +88,9 @@ Docker Desktop owns the local Kubernetes cluster. The devcontainer owns the tool
 
 ## Start Here
 
-Start with the first project plan:
+Start with the first walkthrough:
 
-- [Local Kubernetes Walkthrough](project-plans/local-kubernetes-walkthrough.md)
+- [Part 01: Local Kubernetes Walkthrough](part-01-local-kubernetes/walkthrough.md)
 
 Then use the matching working folder:
 
@@ -100,8 +98,8 @@ Then use the matching working folder:
 
 After that, move to:
 
-- [Coder Platform Project Plan](project-plans/coder-platform-project.md)
-- [ARC On Kubernetes Project Plan](project-plans/arc-on-kubernetes-project.md)
+- [Part 02: Coder Platform Walkthrough](part-02-coder-platform/walkthrough.md)
+- [Part 03: ARC Runners Walkthrough](part-03-arc-runners/walkthrough.md)
 
 ## AWS Cost Safety
 

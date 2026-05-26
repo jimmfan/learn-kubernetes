@@ -1,6 +1,6 @@
 # Part 02: Coder Platform
 
-Plan: [Coder Platform Project Plan](../project-plans/coder-platform-project.md)
+Walkthrough: [Coder Platform Walkthrough](walkthrough.md)
 
 Goal: learn how Coder turns developer workspaces into a platform running on Docker, Kubernetes, and eventually EKS.
 
@@ -40,7 +40,7 @@ part-02-coder-platform/
 
 ## Practice Order
 
-1. Read [the project plan](../project-plans/coder-platform-project.md).
+1. Read [the walkthrough](walkthrough.md).
 2. Install Coder locally with Helm using `helm-values/values-local.yaml`.
 3. Push and study the Kubernetes workspace template.
 4. Study the managed-node-group EKS starter before creating AWS resources.

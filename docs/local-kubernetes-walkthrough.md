@@ -1,8 +1,8 @@
 # Local Kubernetes Walkthrough
 
-The walkthrough now lives with the project plans:
+The walkthrough now lives with its matching part:
 
-- [Local Kubernetes Walkthrough](../project-plans/local-kubernetes-walkthrough.md)
+- [Local Kubernetes Walkthrough](../part-01-local-kubernetes/walkthrough.md)
 
 The matching working files live in:
 

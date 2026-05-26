@@ -2,7 +2,7 @@
 
 This folder is reserved for full Coder workspace templates.
 
-The first useful templates from the project plan will be:
+The first useful templates from the walkthrough will be:
 
 - `python-docker`
 - `python-kubernetes`

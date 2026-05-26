@@ -35,6 +35,7 @@ echo "Installing base packages..."
   jq \
   lsb-release \
   make \
+  bash-completion \
   unzip
 
 if ! command_exists kubectl; then
@@ -96,6 +97,21 @@ if ! command_exists coder; then
 fi
 
 mkdir -p "$HOME/.kube"
+
+bashrc="$HOME/.bashrc"
+kubectl_alias_marker="# learn-kubernetes kubectl shortcuts"
+touch "$bashrc"
+if ! grep -Fq "$kubectl_alias_marker" "$bashrc"; then
+  {
+    echo
+    echo "$kubectl_alias_marker"
+    echo "alias k=kubectl"
+    echo "if command -v kubectl >/dev/null 2>&1; then"
+    echo "  source <(kubectl completion bash)"
+    echo "  complete -o default -F __start_kubectl k"
+    echo "fi"
+  } >> "$bashrc"
+fi
 
 if [ -f /tmp/host-kube/config ]; then
   cp /tmp/host-kube/config "$HOME/.kube/config"

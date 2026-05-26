@@ -1,8 +1,14 @@
 # Part 01: Local Kubernetes
 
-Plan: [Local Kubernetes Walkthrough](../project-plans/local-kubernetes-walkthrough.md)
+Walkthrough: [Local Kubernetes Walkthrough](walkthrough.md)
 
 Goal: build Kubernetes muscle memory locally before spending money in AWS.
+
+## Concept Diagram
+
+![Kubernetes universe map](assets/kubernetes-universe.svg)
+
+The walkthrough also includes the Mermaid source for this diagram. If VS Code shows the Mermaid block as text, the SVG above is the rendered version.
 
 ## What This Part Teaches
 
@@ -25,7 +31,7 @@ part-01-local-kubernetes/
 
 ## Practice Order
 
-1. Work through [the plan](../project-plans/local-kubernetes-walkthrough.md).
+1. Work through [the walkthrough](walkthrough.md).
 2. Apply the YAML app:
 
    ```bash
