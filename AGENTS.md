@@ -49,13 +49,19 @@ When reviewing or changing Terraform, explain both what the Terraform syntax doe
 
 ## Plan Requests
 
-When the user says to create a "plan", export it as a Markdown file.
+When the user says to create an implementation plan, project plan, migration plan, or work plan, export it as a Markdown file.
 
-- Use a `plans/` folder for general plans.
+- Use a `plans/` folder for general implementation or work plans.
 - Use a `project-plans/` folder when the plan relates to a new or distinct project.
 - Create the folder if it does not already exist.
 - Use clear, descriptive kebab-case filenames.
 - Make the plan useful as a standalone document, with phases, goals, deliverables, and next steps where appropriate.
+
+Learning material is different:
+
+- Use a `guides/` folder for durable learning guides, study paths, curricula, and conceptual roadmaps.
+- If the user says "learning plan", "study guide", "curriculum", or asks for an organized path to learn a topic, prefer `guides/` instead of `plans/`.
+- Make guides useful as long-lived reference material, with sequence, checkpoints, concepts, labs, and next steps where appropriate.
 
 If the user only asks to discuss or brainstorm a plan, answer conversationally. If they say "create a plan", "write a plan", "export a plan", or similar, create the `.md` file.
 

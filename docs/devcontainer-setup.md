@@ -24,7 +24,11 @@ The setup script:
 - Installs `kubectl` for talking to Kubernetes clusters.
 - Installs `helm` for Coder, ARC, and other Kubernetes chart installs.
 - Installs `terraform` for the local Kubernetes and EKS practice modules.
+- Installs `terraform-ls` for Terraform language-server support in VS Code.
+- Installs `tflint` for Terraform linting.
+- Installs `yq` for reading and editing YAML from the command line.
 - Installs `aws` for AWS account access and EKS kubeconfig updates.
+- Installs `gh` for GitHub repo, workflow, and runner inventory tasks.
 - Installs `eksctl` for the EKS Auto Mode starter.
 - Installs `kind` for local ARC experiments that need a disposable Kubernetes cluster.
 - Installs `coder` for Coder template and workspace workflows.
@@ -39,12 +43,29 @@ The setup script:
 | `kubectl` | Inspecting and changing Kubernetes resources in local Docker Desktop, kind, or EKS clusters. |
 | `helm` | Installing packaged Kubernetes apps such as Coder and Actions Runner Controller. |
 | `terraform` | Creating Kubernetes resources locally and AWS/EKS infrastructure later. |
+| `terraform-ls` | Terraform language server used by the HashiCorp Terraform VS Code extension. |
+| `tflint` | Linting Terraform for provider-specific mistakes and style issues. |
+| `yq` | Querying and editing YAML files such as Kubernetes manifests and Helm values. |
 | `aws` | Authenticating to AWS and running `aws eks update-kubeconfig`. |
+| `gh` | Inspecting GitHub repositories, workflows, and runner setup during ARC work. |
 | `eksctl` | Creating the EKS Auto Mode starter cluster from YAML. |
 | `kind` | Running a throwaway local Kubernetes cluster, useful for ARC labs. |
 | `coder` | Pushing Coder templates and interacting with Coder workspaces. |
 
 For AWS learning: `aws` is the general AWS CLI, while `eksctl` is a Kubernetes/EKS-focused helper that can create and delete EKS clusters from a simpler YAML file. Terraform overlaps with `eksctl`, but teaches the infrastructure-as-code model you will use for more production-shaped AWS work.
+
+## VS Code Extensions
+
+The devcontainer recommends these extensions:
+
+| Extension | Used For |
+|-----------|----------|
+| `HashiCorp.terraform` | Official Terraform syntax highlighting, formatting, validation, and language-server integration. |
+| `ms-kubernetes-tools.vscode-kubernetes-tools` | Kubernetes manifest help, cluster browsing, and `kubectl`-oriented workflows. |
+| `redhat.vscode-yaml` | YAML validation and editing support for Kubernetes manifests, Helm values, and GitHub Actions workflows. |
+| `github.vscode-github-actions` | GitHub Actions workflow editing, useful for ARC runner migration labs. |
+| `ms-azuretools.vscode-docker` | Dockerfile and container workflow support for Coder and runner images. |
+| `openai.chatgpt` | ChatGPT extension support inside the devcontainer. |
 
 ## Rebuild
 

@@ -1,12 +1,14 @@
 # Kubernetes, EKS, Coder, and ARC Learning Lab
 
-This repo is organized as a three-part, 4-week hands-on ramp-up:
+This repo is organized around one central learning guide and three hands-on lab parts:
+
+- [Kubernetes Platform Learning Guide](guides/kubernetes-platform-learning-guide.md)
 
 1. [Part 01: Local Kubernetes](part-01-local-kubernetes)
 2. [Part 02: Coder Platform](part-02-coder-platform)
 3. [Part 03: ARC Runners](part-03-arc-runners)
 
-Each `part-*` folder has its own `walkthrough.md` with the curriculum, plan context, and hands-on path for that part. The same folders also contain the related manifests, Terraform, Helm values, and future exercises. The goal is practical readiness for Kubernetes, EKS, Coder, and GitHub ARC runner scale sets, not a generic Kubernetes course.
+The guide is the source of truth for sequence, checkpoints, deliverables, and AWS cost guardrails. Each `part-*` folder has its own `walkthrough.md` that acts as the lab manual for that part. The same folders also contain the related manifests, Terraform, Helm values, and future exercises. The goal is practical readiness for Kubernetes, EKS, Coder, and GitHub ARC runner scale sets, not a generic Kubernetes course.
 
 ## Learning Path
 
@@ -41,7 +43,10 @@ The order matters. Local Kubernetes gives you the mental model. Coder turns that
 
 docs/
   devcontainer-setup.md         setup details and troubleshooting
-  eks-coder-learning-plan.md    longer EKS + Coder learning roadmap
+
+guides/
+  kubernetes-platform-learning-guide.md
+                                central learning sequence and checkpoints
 
 part-01-local-kubernetes/
   walkthrough.md                local Kubernetes curriculum and lab guide
@@ -71,6 +76,8 @@ Command Palette -> Dev Containers: Rebuild Container
 
 The devcontainer runs [.devcontainer/setup.sh](.devcontainer/setup.sh), which installs `kubectl`, copies your host kubeconfig, and adjusts Docker Desktop's local API endpoint so it works from inside the container.
 
+It also adds the common `k` alias for `kubectl`.
+
 Verify the local cluster:
 
 ```bash
@@ -88,7 +95,11 @@ Docker Desktop owns the local Kubernetes cluster. The devcontainer owns the tool
 
 ## Start Here
 
-Start with the first walkthrough:
+Start with the central guide:
+
+- [Kubernetes Platform Learning Guide](guides/kubernetes-platform-learning-guide.md)
+
+Then use the first walkthrough when the guide sends you into the hands-on lab:
 
 - [Part 01: Local Kubernetes Walkthrough](part-01-local-kubernetes/walkthrough.md)
 

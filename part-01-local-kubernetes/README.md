@@ -2,13 +2,9 @@
 
 Walkthrough: [Local Kubernetes Walkthrough](walkthrough.md)
 
+Concept map: [Kubernetes Universe Map](kubernetes-universe-map.md)
+
 Goal: build Kubernetes muscle memory locally before spending money in AWS.
-
-## Concept Diagram
-
-![Kubernetes universe map](assets/kubernetes-universe.svg)
-
-The walkthrough also includes the Mermaid source for this diagram. If VS Code shows the Mermaid block as text, the SVG above is the rendered version.
 
 ## What This Part Teaches
 

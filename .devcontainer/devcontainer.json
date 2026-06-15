@@ -19,9 +19,28 @@
 
   "customizations": {
     "vscode": {
+      "settings": {
+        "[terraform]": {
+          "editor.defaultFormatter": "HashiCorp.terraform",
+          "editor.formatOnSave": true
+        },
+        "[terraform-vars]": {
+          "editor.defaultFormatter": "HashiCorp.terraform",
+          "editor.formatOnSave": true
+        },
+        "terraform.languageServer.path": "terraform-ls",
+        "terraform.languageServer.args": [
+          "serve"
+        ],
+        "yaml.validate": true
+      },
       "extensions": [
+        "HashiCorp.terraform",
+        "github.vscode-github-actions",
+        "ms-azuretools.vscode-docker",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
-        "openai.chatgpt"
+        "openai.chatgpt",
+        "redhat.vscode-yaml"
       ]
     }
   }

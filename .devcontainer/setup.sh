@@ -28,14 +28,24 @@ esac
 echo "Installing base packages..."
 "${sudo_cmd[@]}" apt-get update
 "${sudo_cmd[@]}" apt-get install -y --no-install-recommends \
+  bash-completion \
   ca-certificates \
   curl \
+  dnsutils \
   git \
   gnupg \
+  iproute2 \
   jq \
+  less \
   lsb-release \
   make \
-  bash-completion \
+  nano \
+  netcat-openbsd \
+  python3 \
+  python3-pip \
+  python3-venv \
+  shellcheck \
+  tree \
   unzip
 
 if ! command_exists kubectl; then
@@ -65,6 +75,27 @@ if ! command_exists terraform; then
   "${sudo_cmd[@]}" apt-get install -y --no-install-recommends terraform
 fi
 
+if ! command_exists terraform-ls; then
+  terraform_ls_version="$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/terraform-ls | jq -r .current_version)"
+  curl -fsSL -o "$tmp_dir/terraform-ls.zip" \
+    "https://releases.hashicorp.com/terraform-ls/${terraform_ls_version}/terraform-ls_${terraform_ls_version}_linux_${arch}.zip"
+  unzip -q "$tmp_dir/terraform-ls.zip" -d "$tmp_dir/terraform-ls"
+  install -m 0755 "$tmp_dir/terraform-ls/terraform-ls" "$install_dir/terraform-ls"
+fi
+
+if ! command_exists tflint; then
+  curl -fsSL -o "$tmp_dir/tflint.zip" \
+    "https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_${arch}.zip"
+  unzip -q "$tmp_dir/tflint.zip" -d "$tmp_dir/tflint"
+  install -m 0755 "$tmp_dir/tflint/tflint" "$install_dir/tflint"
+fi
+
+if ! command_exists yq; then
+  curl -fsSL -o "$tmp_dir/yq" \
+    "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${arch}"
+  install -m 0755 "$tmp_dir/yq" "$install_dir/yq"
+fi
+
 if ! command_exists aws; then
   aws_arch="$arch"
   case "$aws_arch" in
@@ -76,6 +107,14 @@ if ! command_exists aws; then
     "https://awscli.amazonaws.com/awscli-exe-linux-${aws_arch}.zip"
   unzip -q "$tmp_dir/awscliv2.zip" -d "$tmp_dir"
   "${sudo_cmd[@]}" "$tmp_dir/aws/install" --update
+fi
+
+if ! command_exists gh; then
+  gh_version="$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | jq -r .tag_name | sed 's/^v//')"
+  curl -fsSL -o "$tmp_dir/gh.tar.gz" \
+    "https://github.com/cli/cli/releases/latest/download/gh_${gh_version}_linux_${arch}.tar.gz"
+  tar -xzf "$tmp_dir/gh.tar.gz" -C "$tmp_dir"
+  install -m 0755 "$tmp_dir/gh_${gh_version}_linux_${arch}/bin/gh" "$install_dir/gh"
 fi
 
 if ! command_exists eksctl; then
@@ -134,8 +173,20 @@ helm version --short
 echo "terraform:"
 terraform version
 
+echo "terraform-ls:"
+terraform-ls version
+
+echo "tflint:"
+tflint --version
+
+echo "yq:"
+yq --version
+
 echo "aws:"
 aws --version
+
+echo "gh:"
+gh --version | head -n 1
 
 echo "eksctl:"
 eksctl version
