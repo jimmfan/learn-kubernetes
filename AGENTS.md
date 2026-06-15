@@ -31,6 +31,42 @@ Practical implications:
 - If a tool only publishes x86 images or binaries, call that out and suggest an Apple Silicon-compatible alternative or an explicit emulation path.
 - For Docker Desktop Kubernetes, remember the Kubernetes cluster runs through Docker Desktop on the Mac, while `kubectl`, `helm`, `terraform`, `aws`, `eksctl`, `kind`, and `coder` run from inside the devcontainer.
 
+## VS Code Devcontainer Troubleshooting
+
+VS Code runs with two sides when this repository is opened in a devcontainer:
+
+- The VS Code UI runs on the macOS host.
+- Workspace extensions run inside the Linux devcontainer, including Terraform, Kubernetes, Docker, and the OpenAI/Codex extension.
+
+If the VS Code window hangs, the Codex panel spins forever, or the app reports that the window is not responding, do not assume Codex itself is the only problem. First check whether the devcontainer and remote extension host are healthy.
+
+Known issue seen in this repo:
+
+- The HashiCorp Terraform extension can activate before `.devcontainer/setup.sh` has finished installing or exposing `terraform-ls`.
+- When that happens, VS Code remote extension logs may show an error like `Unable to launch language server: not found: terraform-ls`.
+- This can make the devcontainer session feel broken even though Docker and the Codex extension binary are running.
+- The repo pins `terraform.languageServer.path` to `/home/vscode/.local/bin/terraform-ls` so the Terraform extension does not depend on remote extension `PATH` timing.
+- The repo also sets `waitFor` to `postCreateCommand` so VS Code waits for `.devcontainer/setup.sh` before attaching and activating remote workspace extensions.
+- Codex on Linux expects `bubblewrap`/`bwrap` for reliable sandboxing, so `.devcontainer/setup.sh` installs the Ubuntu `bubblewrap` package. If Codex logs warn that `bubblewrap` is missing, rebuild the devcontainer and verify `bwrap` exists inside it.
+- If Codex is still broken after `codex app-server`, `bwrap`, and `terraform-ls` are healthy, check the GitHub Copilot Chat logs. A seen failure is `PendingMigrationError: navigator is now a global in nodejs` from the bundled `GitHub.copilot-chat` extension. Temporarily disable Copilot Chat/background agent features for this workspace to isolate Codex.
+- The same `PendingMigrationError` has also been seen from the `openai.chatgpt` extension itself on VS Code Server `1.124.x`. The remote extension host supports a `--supportGlobalNavigator` flag, but this devcontainer launch path did not pass it. `.devcontainer/setup.sh` includes a narrow compatibility patch for the VS Code server `extensionHostProcess.js` global `navigator` guard so Codex can activate.
+- Treat that VS Code server patch as a temporary compatibility workaround, not a permanent architecture choice. If Codex breaks again, first verify the current log still shows `PendingMigrationError: navigator is now a global in nodejs` from `openai.chatgpt` or `GitHub.copilot-chat`, then verify the patch was applied inside the active container. If a future VS Code or Codex extension version no longer throws this error, remove the patch from `.devcontainer/setup.sh`.
+
+Useful checks:
+
+- Inspect running devcontainers with `docker ps`.
+- Inspect the VS Code server and extension processes with `docker exec <container> ps -eo pid,ppid,stat,etime,comm,args`.
+- Read remote extension logs under `/home/vscode/.vscode-server/data/logs/.../exthost*/remoteexthost.log`.
+- Verify expected tools exist inside the devcontainer, especially `/home/vscode/.local/bin/terraform-ls`.
+
+Typical recovery steps:
+
+- Reopen or close the frozen VS Code window.
+- Run `Dev Containers: Rebuild Container`.
+- After the rebuild opens, run `Developer: Reload Window` if extensions still look stuck.
+- If Codex still hangs after Terraform is healthy, also check for other remote extension activation errors, such as GitHub Copilot errors.
+- If the `navigator` compatibility issue recurs, fully close all VS Code windows for this repo before rebuilding. Multiple stale remote extension hosts in one devcontainer can leave several `codex app-server` processes running and make the UI look broken even after the patch is present.
+
 ## Terraform Context
 
 The user has about a year of Terraform experience and understands some basic Terraform functionality. Do not over-explain the absolute basics unless asked, but do explain Terraform concepts when they affect the answer, especially:

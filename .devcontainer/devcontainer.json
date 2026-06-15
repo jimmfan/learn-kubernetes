@@ -16,6 +16,7 @@
   },
 
   "postCreateCommand": "bash .devcontainer/setup.sh",
+  "waitFor": "postCreateCommand",
 
   "customizations": {
     "vscode": {
@@ -28,7 +29,7 @@
           "editor.defaultFormatter": "HashiCorp.terraform",
           "editor.formatOnSave": true
         },
-        "terraform.languageServer.path": "terraform-ls",
+        "terraform.languageServer.path": "/home/vscode/.local/bin/terraform-ls",
         "terraform.languageServer.args": [
           "serve"
         ],

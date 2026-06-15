@@ -18,6 +18,30 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+patch_vscode_global_navigator_guard() {
+  local vscode_server_root="/vscode/vscode-server/bin/linux-${arch}"
+
+  if [ ! -d "$vscode_server_root" ]; then
+    return
+  fi
+
+  python3 - "$vscode_server_root" <<'PY'
+from pathlib import Path
+import sys
+
+server_root = Path(sys.argv[1])
+old = 'Qy.supportGlobalNavigator||Object.defineProperty(globalThis,"navigator",{get:()=>{ta(new ea("navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error."))}});'
+new = 'Qy.supportGlobalNavigator||globalThis.navigator||Object.defineProperty(globalThis,"navigator",{value:{userAgent:"Node.js"},configurable:!0});'
+
+for path in server_root.glob("*/out/vs/workbench/api/node/extensionHostProcess.js"):
+    text = path.read_text()
+    if old not in text or new in text:
+        continue
+    path.write_text(text.replace(old, new))
+    print(f"Patched VS Code extension host global navigator guard: {path}")
+PY
+}
+
 arch="$(uname -m)"
 case "$arch" in
   x86_64) arch="amd64" ;;
@@ -29,6 +53,7 @@ echo "Installing base packages..."
 "${sudo_cmd[@]}" apt-get update
 "${sudo_cmd[@]}" apt-get install -y --no-install-recommends \
   bash-completion \
+  bubblewrap \
   ca-certificates \
   curl \
   dnsutils \
@@ -47,6 +72,8 @@ echo "Installing base packages..."
   shellcheck \
   tree \
   unzip
+
+patch_vscode_global_navigator_guard
 
 if ! command_exists kubectl; then
   kubectl_version="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
