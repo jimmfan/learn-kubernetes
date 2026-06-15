@@ -2,92 +2,203 @@
 
 Think of Kubernetes like a small universe with layers inside layers.
 
+This page is split into small maps so each relationship is easier to read. Start with the platform boundary, then follow the control loop, workload chain, and networking path.
+
+## Platform Boundary
+
+Locally, the platform is Docker Desktop on your Mac. In EKS, the platform is your AWS account.
+
+```text
+Platform
+Docker Desktop locally, AWS account in EKS
+└── Kubernetes cluster
+    ├── Control plane
+    │   └── API server, scheduler, controllers, state store
+    ├── Worker nodes
+    │   └── machines that run Pods
+    └── Namespaces
+        └── logical workspaces for namespaced objects
+            ├── Deployments
+            ├── Services
+            └── Pods
+```
+
+The important cross-links:
+
+```text
+kubectl -> talks to -> control plane API server
+control plane -> schedules -> Pods
+Pods -> run on -> worker nodes
+```
+
+Same idea as a small diagram:
+
 ```mermaid
 flowchart TB
-  user["You<br/>kubectl"]
+  you["You<br/>kubectl"]
 
-  subgraph universe["Platform universe<br/>Docker Desktop locally, AWS account in EKS"]
+  subgraph cluster["Kubernetes cluster"]
     direction TB
-
-    subgraph aws["AWS capacity layer<br/>EKS only"]
-      direction TB
-      ng["Managed node group"]
-      asg["Auto Scaling group"]
-      ec2["EC2 instances"]
-      ng --> asg --> ec2
+    api["Control plane<br/>API server"]
+    subgraph ns["Namespace"]
+      direction LR
+      deploy["Deployment"]
+      svc["Service"]
+      pod["Pod"]
     end
-
-    subgraph cluster["Kubernetes cluster"]
-      direction TB
-
-      subgraph cp["Control plane<br/>the cluster brain"]
-        direction TB
-        api["API server"]
-        etcd["etcd<br/>state store"]
-        sched["Scheduler"]
-        controllers["Controllers"]
-        api --> etcd
-      end
-
-      subgraph ns["Namespace<br/>logical workspace"]
-        direction TB
-        deploy["Deployment"]
-        rs["ReplicaSet"]
-        svc["Service"]
-        labels["Labels"]
-        config["ConfigMap / Secret"]
-        pvc["PersistentVolumeClaim"]
-        nsPods["Pods<br/>namespaced objects"]
-
-        deploy --> rs --> nsPods
-        svc --> labels --> nsPods
-      end
-
-      subgraph nodeSpace["Worker node space<br/>where Pods actually run"]
-        direction TB
-        subgraph nodeA["Node"]
-          direction TB
-          podA["Pod"]
-          containerA["Container"]
-          podA --> containerA
-        end
-        subgraph nodeB["Node"]
-          direction TB
-          podB["Pod"]
-          containerB["Container"]
-          podB --> containerB
-        end
-      end
-    end
+    nodes["Worker nodes"]
   end
 
-  user -->|"talks to"| api
-  controllers -->|"watch desired state and make changes"| deploy
-  sched -->|"chooses a Node for each Pod"| nodeSpace
-  ec2 -.->|"register as Kubernetes Nodes"| nodeSpace
-  nsPods -.->|"run on a chosen Node"| podA
-  nsPods -.->|"run on a chosen Node"| podB
-  svc -.->|"sends traffic to Pods with matching labels"| podA
-  svc -.->|"sends traffic to Pods with matching labels"| podB
+  you -->|"API requests"| api
+  api -->|"schedules"| pod
+  pod -->|"runs on"| nodes
 
-  classDef platformBox fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#111827
-  classDef awsBox fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#111827
-  classDef clusterBox fill:#eef6ff,stroke:#2563eb,stroke-width:2px,color:#111827
   classDef controlBox fill:#fef3c7,stroke:#d97706,stroke-width:1px,color:#111827
   classDef nodeBox fill:#ecfdf5,stroke:#059669,stroke-width:1px,color:#111827
   classDef namespaceBox fill:#f5f3ff,stroke:#7c3aed,stroke-width:1px,color:#111827
   classDef objectBox fill:#ffffff,stroke:#374151,stroke-width:1px,color:#111827
 
-  class universe platformBox
-  class aws,ng,asg,ec2 awsBox
-  class cluster clusterBox
-  class cp,api,sched,controllers,etcd controlBox
-  class nodeSpace,nodeA,nodeB,podA,podB,containerA,containerB nodeBox
-  class ns,deploy,rs,svc,labels,config,pvc,nsPods namespaceBox
-  class user objectBox
+  class api controlBox
+  class nodes nodeBox
+  class ns,deploy,svc,pod namespaceBox
+  class you objectBox
 ```
 
-## How To Read The Diagram
+## Control Plane Loop
+
+The control plane stores desired state and keeps working to make the real cluster match it.
+
+For a Deployment, the loop is:
+
+1. You run a `kubectl` command.  
+   Example: `kubectl create deployment nginx-demo --image=nginx:1.27 -n lab`
+2. `kubectl` sends a matching API request to the API server.  
+   Meaning: "create a Deployment named `nginx-demo` in the `lab` namespace."
+3. The API server validates the request and stores the desired state in `etcd`.  
+   You can read it back with: `kubectl get deployment nginx-demo -n lab`
+4. Controllers notice the desired state and create lower-level objects.  
+   For a Deployment, that means a ReplicaSet and then Pods.
+   You can see them with: `kubectl get replicaset,pods -n lab`
+5. The scheduler notices Pods that do not have a node yet.  
+   You can inspect scheduling details with: `kubectl describe pod <pod-name> -n lab`
+6. The scheduler assigns each Pod to a worker node.  
+   You can see the chosen node with: `kubectl get pods -o wide -n lab`
+7. The worker node starts the Pod's containers.  
+   You can check the app process with: `kubectl logs <pod-name> -n lab`
+
+```mermaid
+sequenceDiagram
+  participant You as You / kubectl
+  participant API as API server
+  participant Store as etcd state store
+  participant Ctrl as Controllers
+  participant Sched as Scheduler
+  participant Node as Worker node
+
+  You->>API: create or update desired state
+  API->>Store: store desired state
+  Ctrl->>API: watch desired state
+  Ctrl->>API: create ReplicaSet / Pods
+  Sched->>API: watch unscheduled Pods
+  Sched->>API: bind Pod to a node
+  Node->>API: report Pod status
+```
+
+Important precision: the scheduler does not schedule Deployments or Services. It schedules Pods. Deployments and Services are desired-state objects stored in the API. Controllers and the scheduler work from that stored state.
+
+## Workload Chain
+
+For normal application workloads, you usually create a Deployment. Kubernetes creates the lower-level objects.
+
+```mermaid
+flowchart TB
+  ns["Namespace<br/>lab"]
+  deploy["Deployment<br/>nginx-demo"]
+  rs["ReplicaSet<br/>keeps replica count"]
+  pod1["Pod<br/>nginx-demo-..."]
+  pod2["Pod<br/>nginx-demo-..."]
+  container1["Container<br/>nginx"]
+  container2["Container<br/>nginx"]
+
+  ns --> deploy
+  deploy --> rs
+  rs --> pod1
+  rs --> pod2
+  pod1 --> container1
+  pod2 --> container2
+
+  classDef namespaceBox fill:#f5f3ff,stroke:#7c3aed,stroke-width:1px,color:#111827
+  classDef podBox fill:#ecfdf5,stroke:#059669,stroke-width:1px,color:#111827
+  classDef objectBox fill:#ffffff,stroke:#374151,stroke-width:1px,color:#111827
+
+  class ns,deploy,rs namespaceBox
+  class pod1,pod2,container1,container2 podBox
+```
+
+## Service To Pods
+
+A Service does not contain Pods. It finds matching Pods by labels and gives them a stable network endpoint.
+
+```mermaid
+flowchart TB
+  client["Client<br/>inside cluster or port-forward"]
+  svc["Service<br/>nginx-demo"]
+  selector["Selector<br/>app=nginx-demo"]
+  labels["Pod labels<br/>app=nginx-demo"]
+  pod1["Pod A"]
+  pod2["Pod B"]
+  pod3["Pod C"]
+
+  client -->|"connects to stable name/IP"| svc
+  svc -->|"uses selector"| selector
+  selector -->|"matches"| labels
+  labels --> pod1
+  labels --> pod2
+  labels --> pod3
+
+  classDef serviceBox fill:#f5f3ff,stroke:#7c3aed,stroke-width:1px,color:#111827
+  classDef podBox fill:#ecfdf5,stroke:#059669,stroke-width:1px,color:#111827
+  classDef objectBox fill:#ffffff,stroke:#374151,stroke-width:1px,color:#111827
+
+  class svc,selector,labels serviceBox
+  class pod1,pod2,pod3 podBox
+  class client objectBox
+```
+
+## EKS Node Groups
+
+This layer exists in EKS, not in basic Docker Desktop Kubernetes.
+
+```mermaid
+flowchart TB
+  subgraph aws["AWS capacity layer"]
+    direction TB
+    mng["EKS managed node group"]
+    asg["Auto Scaling group"]
+    ec2a["EC2 instance"]
+    ec2b["EC2 instance"]
+  end
+
+  nodeA["Kubernetes Node"]
+  nodeB["Kubernetes Node"]
+  pods["Pods run here"]
+
+  mng --> asg
+  asg --> ec2a
+  asg --> ec2b
+  ec2a -->|"joins cluster as"| nodeA
+  ec2b -->|"joins cluster as"| nodeB
+  nodeA --> pods
+  nodeB --> pods
+
+  classDef awsBox fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#111827
+  classDef nodeBox fill:#ecfdf5,stroke:#059669,stroke-width:1px,color:#111827
+
+  class aws,mng,asg,ec2a,ec2b awsBox
+  class nodeA,nodeB,pods nodeBox
+```
+
+## How To Read These Maps
 
 - The **platform boundary** is where the cluster lives. Locally, that is Docker Desktop on your Mac. In AWS, that is your AWS account.
 - The **Kubernetes cluster** contains the control plane, worker nodes, namespaces, and Kubernetes objects.
@@ -95,19 +206,21 @@ flowchart TB
 - **Worker nodes** are the machines that run Pods. In Docker Desktop, this is usually one local node. In EKS, these are usually EC2 instances or Fargate capacity.
 - A **node group** is an EKS/AWS concept, not a basic Kubernetes object. A managed node group creates and manages a group of EC2 worker instances. Those EC2 instances join the Kubernetes cluster and appear to Kubernetes as Nodes.
 - A **namespace** is a logical workspace inside the cluster. Deployments, Services, ConfigMaps, Secrets, and PVCs live in namespaces.
-- **Pods** are a little special: they belong to a namespace, but they are also scheduled onto a node. The diagram draws them under worker nodes to show where they run.
+- **Pods** are a little special: they belong to a namespace, but they are also scheduled onto a node. The workload map shows their ownership chain, and the control plane map shows that Pods run on worker nodes.
 - A **Deployment** creates and manages a **ReplicaSet**. The ReplicaSet keeps the requested number of Pods running.
 - A **Service** does not contain Pods. It finds Pods through labels and gives them a stable network endpoint.
 - An **Ingress** or cloud **LoadBalancer** is how outside traffic usually reaches a Service. In EKS, that often means AWS creates an ALB or NLB around your cluster.
 
 ## Arrow Labels In Plain English
 
-- **talks to** means your `kubectl` command sends requests to the Kubernetes API server.
-- **watch desired state and make changes** means controllers continuously compare what you asked for with what is actually running. For example, if a Deployment says "run 3 Pods" and only 2 exist, a controller helps create another one.
-- **chooses a Node for each Pod** means the scheduler decides which worker machine should run a Pod. It considers available CPU, memory, rules, and constraints.
-- **register as Kubernetes Nodes** means that in EKS, AWS EC2 instances join the cluster and show up as Kubernetes Nodes.
-- **run on a chosen Node** means a Pod is still a namespaced Kubernetes object, but its containers execute on one specific worker node.
-- **sends traffic to Pods with matching labels** means a Service looks for Pods with the right labels, then gives traffic a stable way to reach those Pods even if individual Pods are replaced.
+- **sends API requests** means your `kubectl` command talks to the Kubernetes API server.
+- **store state** means the API server records desired cluster state in `etcd`.
+- **watch desired state** means controllers continuously compare what you asked for with what is actually running.
+- **create lower-level objects** means a controller reacts to a higher-level object. For example, a Deployment leads to a ReplicaSet, and the ReplicaSet leads to Pods.
+- **choose a node** means the scheduler decides which worker machine should run a Pod. It considers available CPU, memory, rules, and constraints.
+- **runs on** means a Pod is still a Kubernetes object, but its containers execute on one specific worker node.
+- **uses selector** and **matches** mean a Service finds Pods by comparing its selector to Pod labels.
+- **joins cluster as** means that in EKS, AWS EC2 instances register with Kubernetes and show up as Nodes.
 
 ## Where Node Groups Fit
 

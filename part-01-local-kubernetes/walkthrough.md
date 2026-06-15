@@ -13,6 +13,41 @@ The point is not to memorize commands. The point is to learn what question each 
 - How does traffic reach the app?
 - Where do I look when something is broken?
 
+Most `kubectl` commands in this walkthrough follow this shape:
+
+```text
+kubectl <verb> <resource-type> <resource-name> <flags>
+```
+
+For example:
+
+```bash
+kubectl get pods -n lab
+```
+
+Read that as:
+
+- `kubectl`: the CLI client that talks to the Kubernetes API server.
+- `get`: the action, or verb. Here it means "list or show."
+- `pods`: the Kubernetes resource type.
+- `-n lab`: a flag. Here it means "use the `lab` namespace."
+
+Common verbs in this walkthrough:
+
+- `get`: list resources.
+- `describe`: show detailed status, settings, and events for one resource.
+- `create`: create a new resource.
+- `delete`: delete a resource.
+- `logs`: print container logs.
+- `exec`: run a command inside a container.
+
+Common flags in this walkthrough:
+
+- `-n <namespace>` or `--namespace <namespace>`: choose the namespace.
+- `-A` or `--all-namespaces`: search across all namespaces.
+- `-o wide`: show extra output columns.
+- `--show-labels`: include labels in the output.
+
 ## Kubernetes Universe Map
 
 Before starting the hands-on commands, read the concept map:
@@ -29,6 +64,14 @@ Before creating anything, verify that `kubectl` is aimed at the cluster you inte
 kubectl config get-contexts
 kubectl get nodes
 ```
+
+Command breakdown:
+
+- `kubectl config get-contexts`: show the Kubernetes contexts saved in your kubeconfig.
+- `kubectl get nodes`: list the worker nodes in the active cluster.
+- `config` means you are inspecting or changing `kubectl` connection settings.
+- `get` means "list resources."
+- `nodes` is the Kubernetes resource type you are listing.
 
 Why you are running this:
 
@@ -79,32 +122,11 @@ Why these are useful:
 
 So what? In EKS, this same habit prevents expensive or risky mistakes. You will often have separate dev, staging, and production clusters. Always confirm the target before changing infrastructure.
 
-## Apple Silicon Checks
+## Architecture Note
 
-Run these once when the devcontainer starts:
+This lab uses the official nginx image, which supports common CPU architectures including `linux/arm64`. On your Apple Silicon Mac, there should be nothing special to configure for this walkthrough.
 
-```bash
-uname -m
-docker buildx ls
-kubectl get nodes -o wide
-```
-
-Why you are running this:
-
-- Your MacBook Air M2 is ARM-based.
-- The devcontainer also usually runs as Linux ARM.
-- Kubernetes nodes have a CPU architecture too.
-- Container images and downloaded CLI binaries need to match the architecture where they run.
-
-What to look for:
-
-- `uname -m` should show `aarch64` or `arm64` inside the devcontainer.
-- `docker buildx ls` should show builders that can build for ARM.
-- `kubectl get nodes -o wide` should show node architecture and container runtime details.
-
-On a MacBook Air M2, expect `arm64` or `aarch64` somewhere in the chain. For this repo, downloaded CLIs and Docker images should support `linux/arm64` when they run inside the devcontainer or cluster.
-
-So what? This matters later for EKS node groups. If you choose AWS Graviton instances for lower cost, every workload scheduled there needs a `linux/arm64` compatible image.
+The bigger architecture lesson belongs in the learning guide: [Apple Silicon, ARM, And Container Images](../guides/kubernetes-platform-learning-guide.md#apple-silicon-arm-and-container-images).
 
 ## Create A Namespace
 
@@ -112,30 +134,65 @@ Create a separate workspace for the lab:
 
 ```bash
 kubectl create namespace lab
-kubectl config set-context --current --namespace=lab
 ```
+
+Command breakdown:
+
+- `kubectl create namespace lab`: create a Namespace resource named `lab`.
+- `create` means "make a new resource."
+- `namespace` is the resource type.
+- `lab` is the name you are giving that namespace.
 
 Why you are running this:
 
 - A namespace keeps this walkthrough's resources separate from Kubernetes system resources.
-- Setting the current namespace lets you type shorter commands.
+- Using `-n lab` makes every command show exactly which namespace it targets.
 - Cleanup becomes easy because deleting the namespace deletes everything inside it.
 
 `kubectl create namespace lab` creates a logical workspace named `lab`.
 
-`kubectl config set-context --current --namespace=lab` changes your active context so future namespaced commands default to `lab`. Without this, you would need to add `-n lab` to most commands.
+In this walkthrough, use `-n lab` explicitly even though it is a little more typing. That builds the habit you will use in real clusters where you may switch between namespaces such as `coder`, `arc-runners`, `monitoring`, and `kube-system`.
 
-Check your default namespace:
+Optional convenience command:
 
 ```bash
-kubectl config view --minify
-kubectl get pods
+kubectl config set-context --current --namespace=lab
 ```
+
+Command breakdown:
+
+- `config set-context`: edit a saved kubeconfig context.
+- `--current`: edit the context you are currently using.
+- `--namespace=lab`: set `lab` as the default namespace for that context.
+
+That changes your active context so future namespaced commands default to `lab`. It is useful during focused work, but explicit `-n lab` commands are clearer in shell history and safer when you work across multiple namespaces.
+
+Check the namespace:
+
+```bash
+kubectl get namespace lab
+kubectl get pods -n lab
+```
+
+Command breakdown:
+
+- `kubectl get namespace lab`: show the Namespace resource named `lab`.
+- `kubectl get pods -n lab`: list Pods in the `lab` namespace.
+- `pods` is the resource type.
+- `-n lab` is short for `--namespace lab`.
 
 What to look for:
 
-- The minified kubeconfig should show `namespace: lab`.
-- `kubectl get pods` should return no resources yet, because the namespace is empty.
+- The `lab` namespace should exist.
+- `kubectl get pods -n lab` should return no resources yet, because the namespace is empty.
+
+If you ran the optional default namespace command, you can verify it with:
+
+```bash
+kubectl config view --minify
+```
+
+In that case, the minified kubeconfig should show `namespace: lab`.
 
 So what? Namespaces are everywhere in real clusters. Coder, ARC, ingress controllers, monitoring tools, and application teams usually live in separate namespaces so their resources are easier to manage and reason about.
 
@@ -144,15 +201,24 @@ So what? Namespaces are everywhere in real clusters. Coder, ARC, ingress control
 Create a Deployment:
 
 ```bash
-kubectl create deployment nginx-demo --image=nginx:1.27
-kubectl get pods
+kubectl create deployment nginx-demo --image=nginx:1.27 -n lab
+kubectl get pods -n lab
 ```
+
+Command breakdown:
+
+- `kubectl create deployment nginx-demo`: create a Deployment named `nginx-demo`.
+- `--image=nginx:1.27`: tell the Deployment to run containers from the `nginx:1.27` image.
+- `-n lab`: create the Deployment in the `lab` namespace.
+- `kubectl get pods -n lab`: list the Pods that now exist in `lab`.
 
 Why you are running this:
 
 - You are asking Kubernetes to run an app container.
-- You are using a Deployment instead of a raw Pod because Deployments support replica management, rollouts, and rollback.
-- `kubectl get pods` checks what Kubernetes created after you declared the desired state.
+- You are using a Deployment instead of creating a Pod directly because Deployments support replica management, rollouts, and rollback.
+- `kubectl get pods -n lab` checks what Kubernetes created after you declared the desired state in the `lab` namespace.
+
+A raw Pod means a Pod object you create directly, without a Deployment managing it. Kubernetes can run raw Pods, but they are not the usual choice for application workloads. If a raw Pod is deleted, Kubernetes does not automatically create a replacement. A Deployment gives Kubernetes a higher-level desired state: "keep this app running with this many replicas, using this container image."
 
 This creates:
 
@@ -165,11 +231,19 @@ The Deployment is your desired state: "run nginx from the `nginx:1.27` image." K
 Inspect the relationship:
 
 ```bash
-kubectl get deployment
-kubectl get replicaset
-kubectl get pods
-kubectl get pods --show-labels
+kubectl get deployment -n lab
+kubectl get replicaset -n lab
+kubectl get pods -n lab
+kubectl get pods --show-labels -n lab
 ```
+
+Command breakdown:
+
+- `get deployment`: list Deployments.
+- `get replicaset`: list ReplicaSets.
+- `get pods`: list Pods.
+- `--show-labels`: add a `LABELS` column so you can see the labels attached to each Pod.
+- `-n lab`: read these resources from the `lab` namespace.
 
 What to look for:
 
@@ -185,9 +259,16 @@ So what? Most platform tools you will run later, including Coder and ARC, ultima
 Ask Kubernetes to run three copies of nginx:
 
 ```bash
-kubectl scale deployment nginx-demo --replicas=3
-kubectl get pods
+kubectl scale deployment nginx-demo --replicas=3 -n lab
+kubectl get pods -n lab
 ```
+
+Command breakdown:
+
+- `scale`: change the desired replica count for a scalable resource.
+- `deployment nginx-demo`: target the Deployment named `nginx-demo`.
+- `--replicas=3`: ask Kubernetes to keep three matching Pods running.
+- `-n lab`: change the Deployment in the `lab` namespace.
 
 Why you are running this:
 
@@ -198,9 +279,15 @@ Why you are running this:
 Check the Deployment again:
 
 ```bash
-kubectl get deployment nginx-demo
-kubectl get pods -o wide
+kubectl get deployment nginx-demo -n lab
+kubectl get pods -o wide -n lab
 ```
+
+Command breakdown:
+
+- `kubectl get deployment nginx-demo -n lab`: show only the `nginx-demo` Deployment in `lab`.
+- `kubectl get pods -o wide -n lab`: list Pods with extra columns.
+- `-o wide` means "use the wide output format," which often includes node name, Pod IP, and other useful details.
 
 What to look for:
 
@@ -215,9 +302,17 @@ So what? In EKS, scaling a Deployment creates more Pods, but the cluster also ne
 Create a stable network endpoint for the Pods:
 
 ```bash
-kubectl expose deployment nginx-demo --port=80 --type=ClusterIP
-kubectl get svc
+kubectl expose deployment nginx-demo --port=80 --type=ClusterIP -n lab
+kubectl get svc -n lab
 ```
+
+Command breakdown:
+
+- `expose deployment nginx-demo`: create a Service in front of the `nginx-demo` Deployment.
+- `--port=80`: make the Service listen on port 80.
+- `--type=ClusterIP`: make the Service reachable only inside the cluster.
+- `svc` is the short name for `service`.
+- `-n lab`: create and list the Service in the `lab` namespace.
 
 Why you are running this:
 
@@ -230,10 +325,17 @@ Why you are running this:
 Inspect how the Service finds Pods:
 
 ```bash
-kubectl describe svc nginx-demo
-kubectl get endpoints nginx-demo
-kubectl get pods --show-labels
+kubectl describe svc nginx-demo -n lab
+kubectl get endpoints nginx-demo -n lab
+kubectl get pods --show-labels -n lab
 ```
+
+Command breakdown:
+
+- `describe svc nginx-demo`: show detailed information about the `nginx-demo` Service.
+- `get endpoints nginx-demo`: show the Pod IPs currently behind that Service.
+- `get pods --show-labels`: show Pod labels so you can compare them with the Service selector.
+- `-n lab`: inspect resources in the `lab` namespace.
 
 What to look for:
 
@@ -248,8 +350,15 @@ So what? Services are the bridge between changing Pods and stable networking. In
 Forward a local port to the Service:
 
 ```bash
-kubectl port-forward svc/nginx-demo 8080:80
+kubectl port-forward svc/nginx-demo 8080:80 -n lab
 ```
+
+Command breakdown:
+
+- `port-forward`: open a temporary tunnel from your local machine into the cluster.
+- `svc/nginx-demo`: target the Service named `nginx-demo`. `svc` is short for `service`.
+- `8080:80`: forward local port `8080` to Service port `80`.
+- `-n lab`: find the Service in the `lab` namespace.
 
 Open:
 
@@ -280,8 +389,13 @@ So what? `port-forward` is a local debugging tool. In EKS, production traffic us
 List the common objects in the namespace:
 
 ```bash
-kubectl get all
+kubectl get all -n lab
 ```
+
+Command breakdown:
+
+- `get all`: list a common set of resource types in one command.
+- `-n lab`: list resources from the `lab` namespace.
 
 Why you are running this:
 
@@ -315,6 +429,15 @@ kubectl get ingress -A
 kubectl get pvc -A
 ```
 
+Command breakdown:
+
+- `-A` is short for `--all-namespaces`.
+- `events` are Kubernetes activity records, such as scheduling, image pull, and startup messages.
+- `--sort-by=.lastTimestamp` sorts events by their last recorded timestamp.
+- `<pod>` and `<namespace>` are placeholders. Replace them with real names from your cluster.
+- `logs` prints container stdout and stderr.
+- `exec -it ... -- sh` starts an interactive shell inside a running container. The `--` separates `kubectl` options from the command you want to run in the container.
+
 Why these commands are grouped together:
 
 - `get pods -A` answers "what is running, and where?"
@@ -333,8 +456,14 @@ So what? This checklist separates Kubernetes problems from application problems.
 Inspect the Deployment controller's view of the world:
 
 ```bash
-kubectl describe deployment nginx-demo
+kubectl describe deployment nginx-demo -n lab
 ```
+
+Command breakdown:
+
+- `describe`: show detailed information, status, and events for one resource.
+- `deployment nginx-demo`: target the Deployment named `nginx-demo`.
+- `-n lab`: look in the `lab` namespace.
 
 Why you are running this:
 
@@ -356,9 +485,16 @@ So what? Deployments are reconciliation objects. If reality does not match what 
 Pick one Pod and inspect it:
 
 ```bash
-kubectl get pods
-kubectl describe pod <pod-name>
+kubectl get pods -n lab
+kubectl describe pod <pod-name> -n lab
 ```
+
+Command breakdown:
+
+- `get pods -n lab`: list Pods so you can copy the real Pod name.
+- `describe pod <pod-name>`: show detailed information for one Pod.
+- `<pod-name>` is a placeholder. Replace it with a real name from `kubectl get pods -n lab`.
+- `-n lab`: look in the `lab` namespace.
 
 Why you are running this:
 
@@ -381,14 +517,20 @@ So what? In EKS, many failures show up here first: bad image names, missing IAM 
 Read the application logs:
 
 ```bash
-kubectl logs <pod-name>
+kubectl logs <pod-name> -n lab
 ```
 
 For multi-container Pods:
 
 ```bash
-kubectl logs <pod-name> -c <container-name>
+kubectl logs <pod-name> -c <container-name> -n lab
 ```
+
+Command breakdown:
+
+- `logs <pod-name>`: print logs from a Pod's default container.
+- `-c <container-name>`: choose a specific container when a Pod has more than one.
+- `-n lab`: read logs from a Pod in the `lab` namespace.
 
 Why you are running this:
 
@@ -396,7 +538,7 @@ Why you are running this:
 - Application logs tell you what the process did after it started.
 - This is how you move from "Kubernetes problem" to "application problem."
 
-For nginx, the logs are not exciting until traffic reaches it. Try loading `http://localhost:8080` while `port-forward` is running, then run `kubectl logs` again.
+For nginx, the logs are not exciting until traffic reaches it. Try loading `http://localhost:8080` while `port-forward` is running, then run `kubectl logs <pod-name> -n lab` again.
 
 So what? ARC runners, Coder workspace agents, ingress controllers, and app workloads all rely heavily on logs. `describe` explains platform state; `logs` explains process behavior.
 
@@ -405,10 +547,17 @@ So what? ARC runners, Coder workspace agents, ingress controllers, and app workl
 Delete one Pod:
 
 ```bash
-kubectl get pods
-kubectl delete pod <pod-name>
-kubectl get pods
+kubectl get pods -n lab
+kubectl delete pod <pod-name> -n lab
+kubectl get pods -n lab
 ```
+
+Command breakdown:
+
+- `delete pod <pod-name>`: delete one Pod by name.
+- `<pod-name>` is a placeholder. Replace it with one of the real nginx Pod names.
+- `get pods -n lab`: list Pods before and after deletion so you can see the replacement appear.
+- `-n lab`: delete and list Pods in the `lab` namespace.
 
 Why you are running this:
 
@@ -431,9 +580,17 @@ So what? You should usually treat Pods as disposable. Store important state outs
 Change the nginx image version:
 
 ```bash
-kubectl set image deployment/nginx-demo nginx=nginx:1.26
-kubectl rollout status deployment nginx-demo
+kubectl set image deployment/nginx-demo nginx=nginx:1.26 -n lab
+kubectl rollout status deployment nginx-demo -n lab
 ```
+
+Command breakdown:
+
+- `set image`: update the container image on an existing workload.
+- `deployment/nginx-demo`: target the Deployment named `nginx-demo`. The slash form means `resource-type/resource-name`.
+- `nginx=nginx:1.26`: set the container named `nginx` to use the image `nginx:1.26`.
+- `rollout status`: watch the Deployment update until it succeeds or fails.
+- `-n lab`: update and watch the Deployment in the `lab` namespace.
 
 Why you are running this:
 
@@ -444,10 +601,16 @@ Why you are running this:
 Watch the rollout:
 
 ```bash
-kubectl get pods
-kubectl describe deployment nginx-demo
-kubectl rollout history deployment nginx-demo
+kubectl get pods -n lab
+kubectl describe deployment nginx-demo -n lab
+kubectl rollout history deployment nginx-demo -n lab
 ```
+
+Command breakdown:
+
+- `get pods -n lab`: watch which Pods are old, new, running, or terminating.
+- `describe deployment nginx-demo -n lab`: inspect the Deployment's current rollout details.
+- `rollout history`: list recorded Deployment revisions.
 
 What to look for:
 
@@ -462,9 +625,16 @@ So what? This is the same basic mechanism used for application deploys in real c
 Undo the previous rollout:
 
 ```bash
-kubectl rollout undo deployment nginx-demo
-kubectl rollout status deployment nginx-demo
+kubectl rollout undo deployment nginx-demo -n lab
+kubectl rollout status deployment nginx-demo -n lab
 ```
+
+Command breakdown:
+
+- `rollout undo`: roll a Deployment back to its previous revision.
+- `deployment nginx-demo`: target the `nginx-demo` Deployment.
+- `rollout status`: watch the rollback complete.
+- `-n lab`: operate in the `lab` namespace.
 
 Why you are running this:
 
@@ -475,9 +645,14 @@ Why you are running this:
 Check the result:
 
 ```bash
-kubectl rollout history deployment nginx-demo
-kubectl describe deployment nginx-demo
+kubectl rollout history deployment nginx-demo -n lab
+kubectl describe deployment nginx-demo -n lab
 ```
+
+Command breakdown:
+
+- `rollout history`: confirm the Deployment still has recorded revisions.
+- `describe deployment`: inspect the image, replica status, and events after rollback.
 
 So what? Rollback is helpful, but it is not a replacement for good release practices. In production, you also care about database migrations, config changes, external dependencies, and observability.
 
@@ -488,6 +663,11 @@ Delete the namespace:
 ```bash
 kubectl delete namespace lab
 ```
+
+Command breakdown:
+
+- `delete namespace lab`: delete the Namespace named `lab`.
+- Deleting a namespace also deletes namespaced resources inside it, including this lab's Deployment, ReplicaSet, Pods, and Service.
 
 Why you are running this:
 
@@ -501,6 +681,11 @@ Confirm cleanup:
 kubectl get namespace lab
 kubectl get pods -n lab
 ```
+
+Command breakdown:
+
+- `get namespace lab`: check whether the Namespace still exists.
+- `get pods -n lab`: check whether Pods can still be listed from that namespace.
 
 What to expect:
 

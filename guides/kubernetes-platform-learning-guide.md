@@ -367,6 +367,42 @@ Exit criteria:
 - `kubectl get nodes` works from inside the devcontainer.
 - You can explain why `127.0.0.1:6443` is wrong inside the devcontainer.
 
+## Apple Silicon, ARM, And Container Images
+
+This repo assumes you are working from an Apple Silicon Mac, such as a MacBook Air M2. That means there are a few architecture layers to keep straight:
+
+- The Mac host is ARM.
+- The devcontainer usually runs Linux ARM.
+- Docker Desktop Kubernetes runs a local node that can run ARM-compatible workloads.
+- EKS node groups can be x86 (`amd64`) or ARM (`arm64`) depending on the EC2 instance types you choose.
+
+The practical rule is simple: a container image must support the CPU architecture of the Kubernetes node that runs it.
+
+For the local nginx walkthrough, there is nothing special to do. The official nginx image supports common architectures, including `linux/arm64`.
+
+The architecture check commands are:
+
+```bash
+uname -m
+kubectl get nodes -o wide
+```
+
+Use them to answer:
+
+- What architecture are my local tools running on?
+- What architecture are my Kubernetes nodes using?
+
+`docker buildx` becomes important later when you build your own images. It can build and publish multi-architecture images so the same image tag can work on both `linux/amd64` and `linux/arm64`.
+
+Why this matters for EKS:
+
+- If you use common x86 EC2 instances, your workloads need `linux/amd64` images.
+- If you use AWS Graviton EC2 instances, your workloads need `linux/arm64` images.
+- Graviton can be cost-effective, but every workload scheduled onto those nodes must support ARM.
+- A mixed-architecture cluster is possible, but then scheduling rules and image support matter more.
+
+So what? Architecture is not the main lesson in the first Kubernetes lab. It becomes important when you build custom workspace images, runner images, or EKS node groups.
+
 ## Phase 1: Kubernetes Object Model
 
 Goal: understand the core objects before adding Coder, ARC, or AWS.
