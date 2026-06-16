@@ -63,7 +63,7 @@ kubectl get all -n hello
 
 ```bash
 kubectl get pods -A
-kubectl get events -A --sort-by=.lastTimestamp
+kubectl get events -A --sort-by=.metadata.creationTimestamp
 kubectl describe pod <pod> -n <namespace>
 kubectl logs <pod> -n <namespace>
 kubectl exec -it <pod> -n <namespace> -- sh

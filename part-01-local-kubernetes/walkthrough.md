@@ -2,7 +2,7 @@
 
 This walkthrough builds basic `kubectl` muscle memory against the local Docker Desktop Kubernetes cluster.
 
-This is Part 1 of the 4-week ramp-up. Keep it focused on the Kubernetes behaviors needed later for Coder, EKS, and ARC.
+This is the hands-on lab for Part 1 of the learning path. Keep it focused on the Kubernetes behaviors needed later for Coder, EKS, and ARC: desired state, controllers, Pods, Services, labels, events, logs, and cleanup.
 
 The point is not to memorize commands. The point is to learn what question each command answers:
 
@@ -12,6 +12,18 @@ The point is not to memorize commands. The point is to learn what question each 
 - What did Kubernetes create on my behalf?
 - How does traffic reach the app?
 - Where do I look when something is broken?
+
+You will see these names in Part 1:
+
+| Name | Where It Appears | Why It Exists |
+|------|------------------|---------------|
+| `lab` | This walkthrough | A scratch namespace for imperative `kubectl` practice. |
+| `nginx-demo` | This walkthrough | The Deployment and Service you create by hand. |
+| `hello` | YAML follow-up lab | The namespace created by `hello-k8s.yaml`. |
+| `hello-web` | YAML and Terraform follow-up labs | The reusable app example managed declaratively. |
+| `tf-hello` | Terraform follow-up lab | The namespace Terraform creates by default. |
+
+The first pass is intentionally command-driven. The second and third passes use files so you can compare `kubectl apply` with Terraform.
 
 Most `kubectl` commands in this walkthrough follow this shape:
 
@@ -84,13 +96,13 @@ Why you are running this:
 
 Your kubeconfig file is the local config file that tells `kubectl` how to connect to Kubernetes clusters. It usually lives at `~/.kube/config` and contains cluster API server addresses, user credentials, and contexts. In this repo, the devcontainer copies your Mac's kubeconfig and adjusts the Docker Desktop Kubernetes endpoint so commands from inside the container can still reach the local cluster.
 
-`kubectl get nodes` asks the active cluster which worker machines are available to run Pods. In Docker Desktop Kubernetes, this is usually one local node. In EKS, nodes are usually EC2 instances or Fargate capacity.
+`kubectl get nodes` asks the active cluster which worker machines are available to run Pods. In Docker Desktop Kubernetes, this can be one local node or a small local multi-node cluster. In EKS, nodes are usually EC2 instances or Fargate capacity.
 
 What to look for:
 
 - The active context should be `docker-desktop`.
-- You should see a node named `docker-desktop`.
-- The node status should be `Ready`.
+- At least one node should be `Ready`.
+- The node name may be `docker-desktop` in a kubeadm single-node setup, but Docker Desktop 4.51+ can also create a kind-based multi-node cluster with different node names.
 
 If the node is not `Ready`, do not continue yet. Kubernetes can accept Deployment objects, but it will not be able to schedule healthy Pods onto a broken or missing node.
 
@@ -102,8 +114,8 @@ kubectl config get-contexts -o name
 kubectl config use-context docker-desktop
 kubectl config view
 kubectl config view --minify
-kubectl get nodes -o wide
-kubectl describe node docker-desktop
+kubectl get nodes -L kubernetes.io/arch -o wide
+kubectl describe node <node-name>
 kubectl get namespaces
 kubectl get pods --all-namespaces
 ```
@@ -115,8 +127,8 @@ Why these are useful:
 - `use-context docker-desktop` switches `kubectl` back to Docker Desktop Kubernetes.
 - `view` shows the full kubeconfig that `kubectl` is using.
 - `view --minify` shows only the kubeconfig details for the active context.
-- `get nodes -o wide` adds useful node details such as IPs, OS, container runtime, and architecture.
-- `describe node docker-desktop` shows capacity, labels, taints, conditions, and recent node events.
+- `get nodes -L kubernetes.io/arch -o wide` adds useful node details and the CPU architecture label.
+- `describe node <node-name>` shows capacity, labels, taints, conditions, and recent node events. Replace `<node-name>` with a real name from `kubectl get nodes`.
 - `get namespaces` shows the logical workspaces in the cluster.
 - `get pods --all-namespaces` shows what is already running before you add your own app.
 
@@ -124,7 +136,7 @@ So what? In EKS, this same habit prevents expensive or risky mistakes. You will 
 
 ## Architecture Note
 
-This lab uses the official nginx image, which supports common CPU architectures including `linux/arm64`. On your Apple Silicon Mac, there should be nothing special to configure for this walkthrough.
+This lab uses an official nginx image, which supports common CPU architectures including `linux/arm64`. The tag is pinned for repeatable lab output, not because it is special. On your Apple Silicon Mac, there should be nothing extra to configure for this walkthrough.
 
 The bigger architecture lesson belongs in the learning guide: [Apple Silicon, ARM, And Container Images](../guides/kubernetes-platform-learning-guide.md#apple-silicon-arm-and-container-images).
 
@@ -201,14 +213,14 @@ So what? Namespaces are everywhere in real clusters. Coder, ARC, ingress control
 Create a Deployment:
 
 ```bash
-kubectl create deployment nginx-demo --image=nginx:1.27 -n lab
+kubectl create deployment nginx-demo --image=nginx:1.27-alpine -n lab
 kubectl get pods -n lab
 ```
 
 Command breakdown:
 
 - `kubectl create deployment nginx-demo`: create a Deployment named `nginx-demo`.
-- `--image=nginx:1.27`: tell the Deployment to run containers from the `nginx:1.27` image.
+- `--image=nginx:1.27-alpine`: tell the Deployment to run containers from the `nginx:1.27-alpine` image.
 - `-n lab`: create the Deployment in the `lab` namespace.
 - `kubectl get pods -n lab`: list the Pods that now exist in `lab`.
 
@@ -226,7 +238,7 @@ This creates:
 Deployment -> ReplicaSet -> Pod -> Container
 ```
 
-The Deployment is your desired state: "run nginx from the `nginx:1.27` image." Kubernetes then creates a ReplicaSet, and the ReplicaSet creates a Pod. The Pod runs the nginx container.
+The Deployment is your desired state: "run nginx from the `nginx:1.27-alpine` image." Kubernetes then creates a ReplicaSet, and the ReplicaSet creates a Pod. The Pod runs the nginx container.
 
 Inspect the relationship:
 
@@ -326,22 +338,24 @@ Inspect how the Service finds Pods:
 
 ```bash
 kubectl describe svc nginx-demo -n lab
-kubectl get endpoints nginx-demo -n lab
+kubectl get endpointslices -n lab -l kubernetes.io/service-name=nginx-demo
 kubectl get pods --show-labels -n lab
 ```
 
 Command breakdown:
 
 - `describe svc nginx-demo`: show detailed information about the `nginx-demo` Service.
-- `get endpoints nginx-demo`: show the Pod IPs currently behind that Service.
+- `get endpointslices -l kubernetes.io/service-name=nginx-demo`: show the modern Kubernetes backend records for that Service.
 - `get pods --show-labels`: show Pod labels so you can compare them with the Service selector.
 - `-n lab`: inspect resources in the `lab` namespace.
 
 What to look for:
 
 - The Service selector should match the nginx Pod labels.
-- The endpoint list should contain the Pod IPs behind the Service.
+- The EndpointSlice list should contain the Pod IPs behind the Service.
 - If the selector does not match any Pods, the Service exists but sends traffic nowhere.
+
+EndpointSlices replaced the older Endpoints API as the scalable way Kubernetes tracks Service backends. You may still see `kubectl get endpoints` in older examples, but EndpointSlices are the better habit now.
 
 So what? Services are the bridge between changing Pods and stable networking. In EKS, an internal `ClusterIP` Service still works the same way, while external access usually adds an AWS load balancer or ingress controller in front of it.
 
@@ -420,11 +434,12 @@ Use this same checklist in every track before guessing:
 
 ```bash
 kubectl get pods -A
-kubectl get events -A --sort-by=.lastTimestamp
+kubectl get events -A --sort-by=.metadata.creationTimestamp
 kubectl describe pod <pod> -n <namespace>
 kubectl logs <pod> -n <namespace>
 kubectl exec -it <pod> -n <namespace> -- sh
 kubectl get svc -A
+kubectl get endpointslices -A
 kubectl get ingress -A
 kubectl get pvc -A
 ```
@@ -433,19 +448,21 @@ Command breakdown:
 
 - `-A` is short for `--all-namespaces`.
 - `events` are Kubernetes activity records, such as scheduling, image pull, and startup messages.
-- `--sort-by=.lastTimestamp` sorts events by their last recorded timestamp.
+- `--sort-by=.metadata.creationTimestamp` sorts events by when Kubernetes created the Event objects.
 - `<pod>` and `<namespace>` are placeholders. Replace them with real names from your cluster.
 - `logs` prints container stdout and stderr.
 - `exec -it ... -- sh` starts an interactive shell inside a running container. The `--` separates `kubectl` options from the command you want to run in the container.
+- `endpointslices` show which Pod IPs are behind Services.
 
 Why these commands are grouped together:
 
 - `get pods -A` answers "what is running, and where?"
-- `get events -A --sort-by=.lastTimestamp` answers "what recently happened in the cluster?"
+- `get events -A --sort-by=.metadata.creationTimestamp` answers "what recently happened in the cluster?"
 - `describe pod` answers "what does Kubernetes know about this Pod's scheduling, image pulls, restarts, and events?"
 - `logs` answers "what did the application process write to stdout or stderr?"
 - `exec` answers "what can I inspect from inside the running container?"
 - `get svc -A` answers "what stable network endpoints exist?"
+- `get endpointslices -A` answers "which Pods are actually backing those Services?"
 - `get ingress -A` answers "what HTTP routes from outside the cluster exist?"
 - `get pvc -A` answers "what storage claims exist?"
 
@@ -580,7 +597,7 @@ So what? You should usually treat Pods as disposable. Store important state outs
 Change the nginx image version:
 
 ```bash
-kubectl set image deployment/nginx-demo nginx=nginx:1.26 -n lab
+kubectl set image deployment/nginx-demo nginx=nginx:1.26-alpine -n lab
 kubectl rollout status deployment nginx-demo -n lab
 ```
 
@@ -588,7 +605,7 @@ Command breakdown:
 
 - `set image`: update the container image on an existing workload.
 - `deployment/nginx-demo`: target the Deployment named `nginx-demo`. The slash form means `resource-type/resource-name`.
-- `nginx=nginx:1.26`: set the container named `nginx` to use the image `nginx:1.26`.
+- `nginx=nginx:1.26-alpine`: set the container named `nginx` to use the image `nginx:1.26-alpine`.
 - `rollout status`: watch the Deployment update until it succeeds or fails.
 - `-n lab`: update and watch the Deployment in the `lab` namespace.
 
@@ -694,14 +711,128 @@ What to expect:
 
 So what? In AWS, cleanup also controls cost. Namespaces alone do not delete EKS clusters, EC2 nodes, load balancers, or EBS volumes unless those resources are managed as part of the deleted Kubernetes objects. Always understand what layer owns the billable resource.
 
+## Apply The YAML App
+
+Now repeat the same idea declaratively. Instead of creating resources one command at a time, apply the manifest in this repo:
+
+```bash
+kubectl apply -f part-01-local-kubernetes/manifests/hello-k8s.yaml
+kubectl get all -n hello
+kubectl get endpointslices -n hello -l kubernetes.io/service-name=hello-web
+```
+
+Command breakdown:
+
+- `apply -f`: send the YAML file to the Kubernetes API server and ask Kubernetes to create or update the objects described in it.
+- `hello-k8s.yaml`: defines a Namespace, Deployment, and Service.
+- `-n hello`: inspect the namespace created by the manifest.
+- `endpointslices -l kubernetes.io/service-name=hello-web`: show the Pod IPs backing the `hello-web` Service.
+
+Why you are running this:
+
+- You are moving from imperative commands to declarative desired state.
+- The YAML file is repeatable and reviewable.
+- This introduces resource requests and limits, which the one-line `kubectl create deployment` command skipped.
+
+Inspect the manifest after applying it:
+
+```bash
+kubectl describe deployment hello-web -n hello
+kubectl get pods -n hello --show-labels
+kubectl describe svc hello-web -n hello
+```
+
+What to look for:
+
+- The Deployment should want two replicas.
+- The Pod template should include the nginx image, container port, CPU request, memory request, CPU limit, and memory limit.
+- The Service selector should match the Pod label `app.kubernetes.io/name=hello-web`.
+- The EndpointSlice should contain one address per ready backend Pod.
+
+Access it the same way as before:
+
+```bash
+kubectl port-forward -n hello svc/hello-web 8080:80
+```
+
+Open:
+
+```text
+http://localhost:8080
+```
+
+Stop port forwarding with `Ctrl+C`.
+
+Clean up the YAML-managed app:
+
+```bash
+kubectl delete -f part-01-local-kubernetes/manifests/hello-k8s.yaml
+```
+
+So what? `kubectl apply` is still changing Kubernetes desired state directly. The difference is that the desired state lives in a file you can read, diff, commit, and reuse.
+
+## Rebuild With Terraform
+
+The Terraform module creates the same app shape through the Kubernetes provider:
+
+```bash
+cd part-01-local-kubernetes/terraform/local-kubernetes
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+terraform apply
+terraform output port_forward_command
+terraform destroy
+```
+
+Command breakdown:
+
+- `terraform init`: download the Kubernetes provider.
+- `terraform fmt`: format the `.tf` files.
+- `terraform validate`: check the Terraform syntax and provider configuration.
+- `terraform plan`: preview the Kubernetes resources Terraform will create, change, or destroy.
+- `terraform apply`: make the planned changes.
+- `terraform output port_forward_command`: print the `kubectl port-forward` command for the Terraform-managed Service.
+- `terraform destroy`: delete the resources Terraform created.
+
+After `terraform apply`, run the command printed by `terraform output port_forward_command` in a separate terminal if you want to test the app in your browser. Stop it with `Ctrl+C`, then run `terraform destroy`.
+
+Why the Terraform namespace is different:
+
+- The YAML app uses `hello`.
+- The Terraform module defaults to `tf-hello`.
+- Terraform should not silently take ownership of resources you created with `kubectl apply`.
+
+What you should learn here:
+
+- Kubernetes stores desired state in the cluster.
+- Terraform stores its own state for the resources it manages.
+- Terraform can manage Kubernetes objects, but it adds a second ownership layer you must respect.
+- `terraform plan` is the habit that connects syntax to real changes.
+
+Try one controlled change:
+
+```bash
+terraform plan -var='replicas=3'
+```
+
+Read the plan before applying anything. You should be able to predict that Terraform wants the Deployment replica count to change from two to three.
+
+So what? This is the bridge to Coder templates and EKS infrastructure. Later, Terraform will create AWS resources such as VPCs, IAM roles, EKS clusters, and node groups. Here it is easier and cheaper to learn the same planning habit against local Kubernetes objects.
+
 ## Core Mental Model
 
 ```text
 Deployment -> ReplicaSet -> Pods -> Containers
 
-Service -> routes traffic to Pods selected by labels
+Service -> selector/labels -> Pods
+
+EndpointSlice -> current backend IPs for a Service
 
 kubectl -> Kubernetes API server -> desired state -> controllers -> actual running Pods
+
+Terraform -> Kubernetes provider -> Kubernetes API server -> desired state
 ```
 
 The important habit is to ask which layer you are inspecting:
@@ -713,15 +844,18 @@ The important habit is to ask which layer you are inspecting:
 - ReplicaSet: what Pod copies are being maintained?
 - Pod: what is actually running?
 - Service: how does traffic find the Pods?
+- EndpointSlice: which Pod IPs are currently behind the Service?
 - Events and logs: what happened when Kubernetes or the app tried to do the work?
+- Terraform state: which Kubernetes resources does Terraform think it owns?
 
 ## Mapping To EKS
 
 | Local | EKS |
 |------|------|
 | docker-desktop | EKS cluster |
-| local node | EC2 / Fargate |
+| local Docker Desktop nodes | EC2 / Fargate worker capacity |
 | ClusterIP | ClusterIP |
+| EndpointSlice | EndpointSlice |
 | port-forward | ALB / LoadBalancer / Ingress for real traffic |
 | kubeconfig | AWS CLI generated kubeconfig |
 
@@ -759,6 +893,8 @@ So what? This local lab teaches the Kubernetes control loop without AWS cost. EK
 - Deployment vs ReplicaSet vs Pod
 - Why Pods are replaceable
 - How Services find Pods through labels
+- How EndpointSlices show the current Service backends
 - Service vs port-forward
+- Why YAML, Terraform, and imperative commands are different ownership models
 - How to debug a failing Pod using events, `describe`, and logs
 - Why the same Kubernetes commands still matter when the cluster moves to EKS

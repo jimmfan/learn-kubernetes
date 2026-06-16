@@ -2,7 +2,7 @@
 
 This is the central learning guide for this repo. Use it as the "start here" file, then follow the linked walkthroughs and labs when a phase tells you to practice.
 
-The repo already has good material. The main problem is not missing content; it is that the content is spread across several README and walkthrough files. This guide gives that material one sequence, one mental model, and one set of checkpoints.
+For the current cleanup pass, Part 1 is the polished path. Parts 2 and 3 remain useful previews, but they can be tightened later.
 
 ## The Big Picture
 
@@ -22,7 +22,8 @@ The same Kubernetes object model shows up in every layer:
 
 ```text
 Namespace -> Deployment -> ReplicaSet -> Pod -> Container
-Service -> selects Pods with labels
+Service -> selector/labels -> Pods
+EndpointSlice -> current backend IPs for a Service
 Controller -> keeps actual state matched to desired state
 ```
 
@@ -146,6 +147,14 @@ The important split:
 - `part-*/walkthrough.md` is hands-on lab material.
 - `docs/` is supporting reference material.
 
+For Part 1, read in this order:
+
+1. Phase 0 in this guide to make sure the devcontainer can reach Docker Desktop Kubernetes.
+2. [part-01-local-kubernetes/README.md](../part-01-local-kubernetes/README.md) for the Part 1 checklist.
+3. [part-01-local-kubernetes/kubernetes-universe-map.md](../part-01-local-kubernetes/kubernetes-universe-map.md) for the object model.
+4. [part-01-local-kubernetes/walkthrough.md](../part-01-local-kubernetes/walkthrough.md) for the command lab.
+5. [part-01-local-kubernetes/manifests/hello-k8s.yaml](../part-01-local-kubernetes/manifests/hello-k8s.yaml) and [part-01-local-kubernetes/terraform/local-kubernetes](../part-01-local-kubernetes/terraform/local-kubernetes) for the declarative follow-up.
+
 ## Learning Tracks
 
 The repo has three learning tracks. They build on each other:
@@ -183,8 +192,8 @@ Default debugging loop:
 # List every Pod in every namespace. This is the fastest way to see what is running, pending, or crashing.
 kubectl get pods -A
 
-# Show cluster events across namespaces, sorted by most recent timestamp. Events often explain scheduling, image pull, and volume errors.
-kubectl get events -A --sort-by=.lastTimestamp
+# Show cluster events across namespaces, sorted by object creation time. Events often explain scheduling, image pull, and volume errors.
+kubectl get events -A --sort-by=.metadata.creationTimestamp
 
 # Show detailed status, conditions, container state, scheduling info, and recent events for one Pod.
 kubectl describe pod <pod> -n <namespace>
@@ -197,6 +206,9 @@ kubectl exec -it <pod> -n <namespace> -- sh
 
 # List Services across namespaces. Use this when traffic cannot reach a Pod or you need to find a stable endpoint.
 kubectl get svc -A
+
+# List EndpointSlices across namespaces. Use this when a Service exists but may not have ready backend Pods.
+kubectl get endpointslices -A
 
 # List Ingress resources across namespaces. Use this when HTTP routing from outside the cluster is involved.
 kubectl get ingress -A
@@ -245,6 +257,9 @@ kubectl logs <pod> -n <namespace>
 # Show recent events in one namespace. This is useful when a Pod never starts or a Service cannot find endpoints.
 kubectl get events -n <namespace> --sort-by=.metadata.creationTimestamp
 
+# Show the current backend records for Services in one namespace.
+kubectl get endpointslices -n <namespace>
+
 # Ask Kubernetes to explain a specific manifest field. This is like built-in API documentation.
 kubectl explain deployment.spec.template.spec.containers
 ```
@@ -289,17 +304,25 @@ terraform plan
 # Apply the plan and create the local Kubernetes resources.
 terraform apply
 
+# Confirm the namespace Terraform created.
+terraform output namespace
+
 # Print the kubectl command that connects your browser to the Service.
 terraform output port_forward_command
+
+# Preview one controlled change without editing files.
+terraform plan -var='replicas=3'
 
 # Delete the Terraform-managed Kubernetes resources.
 terraform destroy
 ```
 
-### EKS With eksctl
+### Optional EKS Auto Mode With eksctl
+
+Use this as a later comparison path, not as the first EKS lab. The first EKS implementation in this repo should be the Terraform managed-node-group starter because it makes VPCs, subnets, IAM, EC2 nodes, and cost drivers more visible.
 
 ```bash
-# Create an EKS cluster from the eksctl YAML file. This creates paid AWS resources.
+# Create an EKS Auto Mode cluster from the eksctl YAML file. This creates paid AWS resources.
 eksctl create cluster -f part-02-coder-platform/eks/eksctl-auto-mode.yaml
 
 # Update kubeconfig so kubectl can talk to the new EKS cluster.
@@ -350,21 +373,22 @@ Do:
 
 1. Rebuild the devcontainer.
 2. Verify the Docker Desktop Kubernetes context.
-3. Confirm the API endpoint is `https://kubernetes.docker.internal:6443` inside the devcontainer.
+3. Confirm the standard Docker Desktop API endpoint is rewritten to `https://kubernetes.docker.internal:6443` inside the devcontainer when your host kubeconfig used `https://127.0.0.1:6443`.
 4. Confirm tools are installed: `kubectl`, `helm`, `terraform`, `terraform-ls`, `tflint`, `yq`, `aws`, `gh`, `eksctl`, `kind`, and `coder`.
-5. Confirm architecture with `uname -m` and `kubectl get nodes -o wide`.
+5. Confirm architecture with `uname -m` and `kubectl get nodes -L kubernetes.io/arch -o wide`.
 
 What you should learn:
 
 - Docker Desktop owns the local Kubernetes cluster.
 - The devcontainer owns your tools.
 - `kubectl` talks to the cluster through kubeconfig.
+- Docker Desktop Kubernetes may show one or more local nodes depending on how Docker Desktop provisioned the cluster.
 - On Apple Silicon, local and container workloads may be `arm64`, while some EKS examples may use `amd64`.
 
 Exit criteria:
 
 - `kubectl config current-context` points at `docker-desktop`.
-- `kubectl get nodes` works from inside the devcontainer.
+- `kubectl get nodes` works from inside the devcontainer and at least one node is `Ready`.
 - You can explain why `127.0.0.1:6443` is wrong inside the devcontainer.
 
 ## Apple Silicon, ARM, And Container Images
@@ -373,7 +397,7 @@ This repo assumes you are working from an Apple Silicon Mac, such as a MacBook A
 
 - The Mac host is ARM.
 - The devcontainer usually runs Linux ARM.
-- Docker Desktop Kubernetes runs a local node that can run ARM-compatible workloads.
+- Docker Desktop Kubernetes runs local nodes that can run ARM-compatible workloads.
 - EKS node groups can be x86 (`amd64`) or ARM (`arm64`) depending on the EC2 instance types you choose.
 
 The practical rule is simple: a container image must support the CPU architecture of the Kubernetes node that runs it.
@@ -384,7 +408,7 @@ The architecture check commands are:
 
 ```bash
 uname -m
-kubectl get nodes -o wide
+kubectl get nodes -L kubernetes.io/arch -o wide
 ```
 
 Use them to answer:
@@ -415,25 +439,28 @@ Primary files:
 Do:
 
 1. Read the universe map.
-2. Create a namespace.
-3. Create an nginx Deployment.
-4. Scale it.
-5. Expose it with a Service.
-6. Use port-forwarding.
-7. Delete a Pod and watch Kubernetes recreate it.
-8. Roll out and roll back an image change.
+2. Verify your active context and local nodes.
+3. Create the `lab` namespace.
+4. Create the `nginx-demo` Deployment.
+5. Scale it.
+6. Expose it with a `ClusterIP` Service.
+7. Inspect EndpointSlices to see which Pods back the Service.
+8. Use port-forwarding.
+9. Delete a Pod and watch Kubernetes recreate it.
+10. Roll out and roll back an image change.
 
 What you should learn:
 
 - A Pod is the smallest thing Kubernetes schedules.
 - A Deployment manages ReplicaSets, and ReplicaSets keep the requested Pods running.
 - A Service does not contain Pods. It finds them with labels and selectors.
+- EndpointSlices show the current backend Pod IPs for a Service.
 - `kubectl describe` and events usually tell you why something is failing.
 
 Exit criteria:
 
 - You can draw `Deployment -> ReplicaSet -> Pod -> Container`.
-- You can explain how a Service finds Pods.
+- You can explain how a Service finds Pods and how EndpointSlices show the current backends.
 - You can debug a basic `ImagePullBackOff`, crash loop, or broken selector.
 
 ## Phase 2: YAML App And Terraform Equivalent
@@ -447,12 +474,14 @@ Primary files:
 
 Do:
 
-1. Apply the YAML app.
-2. Inspect the Namespace, Deployment, Pods, and Service.
+1. Apply the YAML app into the `hello` namespace.
+2. Inspect the Namespace, Deployment, Pods, Service, and EndpointSlices.
 3. Port-forward to the Service.
-4. Recreate the same app with Terraform.
-5. Change `replicas` from `2` to `3` and inspect the plan.
-6. Break the Service selector and fix it with `kubectl describe svc`.
+4. Delete the YAML app with `kubectl delete -f`.
+5. Recreate the same app shape with Terraform in the default `tf-hello` namespace.
+6. Inspect the Terraform plan before applying.
+7. Change `replicas` from `2` to `3` and inspect the plan.
+8. Break the Service selector and fix it with `kubectl describe svc` and EndpointSlice inspection.
 
 What you should learn:
 
@@ -460,6 +489,7 @@ What you should learn:
 - Terraform stores its own view of managed resources in state.
 - `kubectl apply` changes Kubernetes directly.
 - `terraform apply` changes Kubernetes through the Terraform Kubernetes provider.
+- The separate `hello` and `tf-hello` namespaces prevent ownership confusion between resources changed directly with `kubectl` and resources tracked in Terraform state.
 
 Exit criteria:
 
@@ -539,6 +569,9 @@ Goal: map local Kubernetes concepts to AWS-managed Kubernetes.
 Primary files:
 
 - [part-02-coder-platform/terraform/eks-starter](../part-02-coder-platform/terraform/eks-starter)
+
+Optional later comparison:
+
 - [part-02-coder-platform/eks/eksctl-auto-mode.yaml](../part-02-coder-platform/eks/eksctl-auto-mode.yaml)
 
 Do not start here. Only create EKS resources after local Kubernetes and the Terraform app are comfortable.
@@ -682,7 +715,7 @@ Exit criteria:
 
 ## Suggested 6-Week Schedule
 
-The old 4-week framing is possible, but this repo now covers enough ground that a 6-week schedule is healthier.
+This repo covers enough ground that a 6-week schedule is healthier than rushing through Kubernetes, Terraform, Coder, EKS, and ARC all at once.
 
 ### Week 1: Local Kubernetes
 
@@ -690,7 +723,7 @@ Deliverables:
 
 - Working `nginx-demo` from the walkthrough.
 - Working `hello-k8s.yaml` app.
-- A note explaining Deployment, ReplicaSet, Pod, Service, labels, and namespace.
+- A note explaining Namespace, Deployment, ReplicaSet, Pod, Service, EndpointSlice, labels, and selector.
 - At least three intentional failures and fixes.
 
 ### Week 2: Terraform And Helm
@@ -698,7 +731,7 @@ Deliverables:
 Deliverables:
 
 - Terraform-managed local hello app.
-- A written comparison of YAML apply vs Terraform apply.
+- A written comparison of `kubectl apply` vs `terraform apply`, including `hello` vs `tf-hello` ownership.
 - Local Coder Helm install notes.
 - A note explaining Helm release, chart, and values.
 
@@ -747,6 +780,9 @@ Use these after you have touched the local examples. They will make more sense o
 - [Amazon EKS Best Practices Guide](https://docs.aws.amazon.com/eks/latest/best-practices/introduction.html)
 - [EKS Auto Mode documentation](https://docs.aws.amazon.com/eks/latest/userguide/automode.html)
 - [EKS Auto Mode best practices](https://docs.aws.amazon.com/eks/latest/best-practices/automode.html)
+- [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+- [Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/)
+- [Kubernetes EndpointSlices](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/)
 - [Install Coder on Kubernetes with Helm](https://coder.com/docs/install/kubernetes)
 - [Coder templates](https://coder.com/docs/admin/templates)
 - [Coder workspace proxies](https://coder.com/docs/admin/networking/workspace-proxies)
@@ -781,7 +817,7 @@ By the end of this guide, you should be able to explain:
 
 - How `kubectl` reaches a cluster through kubeconfig.
 - What Kubernetes controllers do.
-- How Deployments, ReplicaSets, Pods, Services, labels, ConfigMaps, Secrets, and PVCs relate.
+- How Deployments, ReplicaSets, Pods, Services, EndpointSlices, labels, ConfigMaps, Secrets, and PVCs relate.
 - How Terraform can manage Kubernetes objects.
 - How Helm installs an application into Kubernetes.
 - How Coder separates control plane, Postgres data, workspace templates, agents, and workspace compute.

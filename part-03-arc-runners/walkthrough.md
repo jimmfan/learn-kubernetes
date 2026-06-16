@@ -64,7 +64,7 @@ Run this when a runner does not appear, a job is queued too long, or a runner po
 
 ```bash
 kubectl get pods -A
-kubectl get events -A --sort-by=.lastTimestamp
+kubectl get events -A --sort-by=.metadata.creationTimestamp
 kubectl describe pod <pod> -n <namespace>
 kubectl logs <pod> -n <namespace>
 kubectl exec -it <pod> -n <namespace> -- sh

@@ -4,6 +4,8 @@ Think of Kubernetes like a small universe with layers inside layers.
 
 This page is split into small maps so each relationship is easier to read. Start with the platform boundary, then follow the control loop, workload chain, and networking path.
 
+The examples use the `lab` namespace and `nginx-demo` app from the walkthrough. The follow-up YAML app uses `hello`, and the Terraform app uses `tf-hello`, but the object relationships are the same.
+
 ## Platform Boundary
 
 Locally, the platform is Docker Desktop on your Mac. In EKS, the platform is your AWS account.
@@ -71,7 +73,7 @@ The control plane stores desired state and keeps working to make the real cluste
 For a Deployment, the loop is:
 
 1. You run a `kubectl` command.  
-   Example: `kubectl create deployment nginx-demo --image=nginx:1.27 -n lab`
+   Example: `kubectl create deployment nginx-demo --image=nginx:1.27-alpine -n lab`
 2. `kubectl` sends a matching API request to the API server.  
    Meaning: "create a Deployment named `nginx-demo` in the `lab` namespace."
 3. The API server validates the request and stores the desired state in `etcd`.  
@@ -137,7 +139,7 @@ flowchart TB
 
 ## Service To Pods
 
-A Service does not contain Pods. It finds matching Pods by labels and gives them a stable network endpoint.
+A Service does not contain Pods. It finds matching Pods by labels and gives them a stable network endpoint. Kubernetes records the current backend Pod IPs in EndpointSlices.
 
 ```mermaid
 flowchart TB
@@ -145,6 +147,7 @@ flowchart TB
   svc["Service<br/>nginx-demo"]
   selector["Selector<br/>app=nginx-demo"]
   labels["Pod labels<br/>app=nginx-demo"]
+  slice["EndpointSlice<br/>current backend Pod IPs"]
   pod1["Pod A"]
   pod2["Pod B"]
   pod3["Pod C"]
@@ -155,19 +158,23 @@ flowchart TB
   labels --> pod1
   labels --> pod2
   labels --> pod3
+  svc -->|"current backends recorded in"| slice
+  slice -.->|"references"| pod1
+  slice -.->|"references"| pod2
+  slice -.->|"references"| pod3
 
   classDef serviceBox fill:#f5f3ff,stroke:#7c3aed,stroke-width:1px,color:#111827
   classDef podBox fill:#ecfdf5,stroke:#059669,stroke-width:1px,color:#111827
   classDef objectBox fill:#ffffff,stroke:#374151,stroke-width:1px,color:#111827
 
-  class svc,selector,labels serviceBox
+  class svc,selector,labels,slice serviceBox
   class pod1,pod2,pod3 podBox
   class client objectBox
 ```
 
 ## EKS Node Groups
 
-This layer exists in EKS, not in basic Docker Desktop Kubernetes.
+This layer exists in EKS, not in basic Docker Desktop Kubernetes. You do not need it to finish Part 1; it is here so the local `Node` concept has a place to land when you move to AWS later.
 
 ```mermaid
 flowchart TB
@@ -203,12 +210,13 @@ flowchart TB
 - The **platform boundary** is where the cluster lives. Locally, that is Docker Desktop on your Mac. In AWS, that is your AWS account.
 - The **Kubernetes cluster** contains the control plane, worker nodes, namespaces, and Kubernetes objects.
 - The **control plane** is the brain of the cluster. `kubectl` talks to the API server, the API server stores state, the scheduler chooses nodes for Pods, and controllers keep reality matching the desired state.
-- **Worker nodes** are the machines that run Pods. In Docker Desktop, this is usually one local node. In EKS, these are usually EC2 instances or Fargate capacity.
+- **Worker nodes** are the machines that run Pods. In Docker Desktop, this might be one local node or a small local multi-node cluster. In EKS, nodes are usually EC2 instances or Fargate capacity.
 - A **node group** is an EKS/AWS concept, not a basic Kubernetes object. A managed node group creates and manages a group of EC2 worker instances. Those EC2 instances join the Kubernetes cluster and appear to Kubernetes as Nodes.
 - A **namespace** is a logical workspace inside the cluster. Deployments, Services, ConfigMaps, Secrets, and PVCs live in namespaces.
 - **Pods** are a little special: they belong to a namespace, but they are also scheduled onto a node. The workload map shows their ownership chain, and the control plane map shows that Pods run on worker nodes.
 - A **Deployment** creates and manages a **ReplicaSet**. The ReplicaSet keeps the requested number of Pods running.
 - A **Service** does not contain Pods. It finds Pods through labels and gives them a stable network endpoint.
+- An **EndpointSlice** records the current network endpoints behind a Service. In this lab, those endpoints are Pod IPs.
 - An **Ingress** or cloud **LoadBalancer** is how outside traffic usually reaches a Service. In EKS, that often means AWS creates an ALB or NLB around your cluster.
 
 ## Arrow Labels In Plain English
@@ -220,6 +228,7 @@ flowchart TB
 - **choose a node** means the scheduler decides which worker machine should run a Pod. It considers available CPU, memory, rules, and constraints.
 - **runs on** means a Pod is still a Kubernetes object, but its containers execute on one specific worker node.
 - **uses selector** and **matches** mean a Service finds Pods by comparing its selector to Pod labels.
+- **current backends recorded in** means Kubernetes writes the current backend addresses into EndpointSlices so cluster networking can route Service traffic.
 - **joins cluster as** means that in EKS, AWS EC2 instances register with Kubernetes and show up as Nodes.
 
 ## Where Node Groups Fit
@@ -271,6 +280,8 @@ Your computer / AWS account
             │           └── Containers
             ├── Services
             │   └── stable network names and virtual IPs for Pods
+            ├── EndpointSlices
+            │   └── current backend endpoints for Services
             ├── ConfigMaps
             │   └── non-secret app configuration
             ├── Secrets
@@ -315,20 +326,22 @@ Namespace: lab
 │           └── Container: nginx
 │
 └── Service: nginx-demo
-    └── selects Pods using labels
-        └── sends traffic to the nginx Pods
+    ├── selects Pods using labels
+    │   └── sends traffic to the nginx Pods
+    └── EndpointSlice records current backend Pod IPs
 ```
 
 Important relationships:
 
 - A **cluster** contains the Kubernetes control plane, nodes, namespaces, and workloads.
-- A **node** is a machine that runs Pods. In Docker Desktop, this is your local Docker Desktop VM. In EKS, nodes are usually EC2 instances or Fargate capacity.
+- A **node** is a machine that runs Pods. In Docker Desktop, nodes run inside Docker Desktop's local Kubernetes environment. In EKS, nodes are usually EC2 instances or Fargate capacity.
 - A **namespace** is a logical workspace inside a cluster. The `lab` namespace keeps the walkthrough's resources separate from system resources.
 - A **Pod** is the smallest unit Kubernetes schedules. A Pod wraps one or more containers.
 - A **container** is where the actual app process runs.
 - A **Deployment** manages a rollout-friendly desired state for Pods.
 - A **ReplicaSet** is created by a Deployment to keep the requested number of matching Pods running.
 - A **Service** gives changing Pods a stable network endpoint.
+- An **EndpointSlice** shows which Pod IPs are currently backing a Service.
 - **Labels** are key-value tags on resources. Services and Deployments use labels to find the Pods they should manage or route to.
 - **kubectl** is the CLI client. It talks to the Kubernetes API server using your kubeconfig.
 
@@ -339,8 +352,8 @@ Local Docker Desktop Kubernetes and EKS use the same Kubernetes object model:
 ```text
 Docker Desktop Kubernetes
 └── Cluster on your Mac
-    └── One local node
-        └── Pods, Services, Deployments, Namespaces
+    └── One or more local nodes
+        └── Pods, Services, EndpointSlices, Deployments, Namespaces
 
 Amazon EKS
 └── AWS-managed Kubernetes control plane
@@ -348,7 +361,7 @@ Amazon EKS
     ├── VPC networking
     ├── IAM permissions
     ├── Load balancers
-    └── Pods, Services, Deployments, Namespaces
+    └── Pods, Services, EndpointSlices, Deployments, Namespaces
 ```
 
 So what? Learning these relationships locally means the Kubernetes part transfers directly to EKS later. The new EKS layer is mostly AWS infrastructure around the cluster: networking, IAM permissions, load balancers, storage, logging, and cost management.
