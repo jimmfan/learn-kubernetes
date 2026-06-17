@@ -20,6 +20,7 @@ Do this first:
 Then, if you have energy, do the optional practice:
 
 - Delete a Pod and watch Kubernetes replace it.
+- Break and fix a Service selector.
 - Roll out and roll back an image change.
 - Apply the YAML version.
 - Rebuild the same app shape with Terraform.
@@ -49,6 +50,29 @@ kubectl get pods -n lab
 ```
 
 Read that as: ask Kubernetes to list Pods in the `lab` namespace.
+
+## Prerequisites
+
+Before starting, make sure:
+
+- Docker Desktop is running.
+- Docker Desktop Kubernetes is enabled.
+- `kubectl` is installed and available in your shell.
+- No AWS account or AWS credentials are required for this local lab.
+
+You can run these commands from either your Mac host or the devcontainer, as long as `kubectl` can reach Docker Desktop Kubernetes. In this repo, most tooling usually runs inside the Linux devcontainer while Docker Desktop Kubernetes runs through Docker Desktop on the Mac.
+
+## What This Lab Creates
+
+The fast path creates:
+
+- one Namespace: `lab`
+- one Deployment: `hello`
+- one ReplicaSet managed by the Deployment
+- one or more Pods managed by the ReplicaSet
+- one ClusterIP Service: `hello`
+
+The cleanup step deletes the `lab` namespace, which deletes the lab objects inside it. In local Docker Desktop Kubernetes, this does not create AWS resources or AWS cost.
 
 ## Optional Map
 
@@ -102,6 +126,8 @@ You are looking for:
 
 - `namespace/lab created`, or an `AlreadyExists` message if you created it earlier.
 - No Pods yet in `lab`.
+
+If you see an `AlreadyExists` message, that only means the namespace already exists. Continue with the next command.
 
 Why this matters:
 
@@ -225,6 +251,8 @@ Service -> selector/labels -> Pods
 EndpointSlice -> current backend Pod IPs
 ```
 
+EndpointSlices are the modern way Kubernetes tracks the backend Pod IPs for a Service. Older examples may use `kubectl get endpoints`; both are trying to answer which Pod IPs are behind a Service.
+
 ## 7. Access The App
 
 Forward a local port to the Service:
@@ -242,6 +270,18 @@ http://localhost:8080
 You should see the nginx welcome page.
 
 Stop port forwarding with `Ctrl+C` when you are done.
+
+If port `8080` is already in use, choose another local port:
+
+```bash
+kubectl port-forward svc/hello 8081:80 -n lab
+```
+
+Then open:
+
+```text
+http://localhost:8081
+```
 
 Why this matters:
 
@@ -266,7 +306,19 @@ You should see:
 
 `kubectl get all` is a quick first glance. It does not literally show every Kubernetes resource type, but it is enough for this lab.
 
-## 9. Clean Up The Fast Path
+## 9. Fast Path Success Criteria
+
+You completed the fast path if you can:
+
+- see three `hello` Pods
+- see a `hello` ClusterIP Service
+- open the nginx welcome page through `kubectl port-forward`
+- explain that the Deployment owns the ReplicaSet, the ReplicaSet owns the Pods, and the Service finds Pods by labels
+- clean everything up by deleting the `lab` namespace when you are done practicing
+
+Do not worry if you cannot explain every detail yet. The point is to start connecting commands to the Kubernetes objects they create.
+
+## 10. Clean Up The Fast Path
 
 If you want to keep practicing, skip cleanup for now and continue to the optional sections. If you are done, delete the namespace:
 
@@ -333,6 +385,46 @@ Why this matters:
 - The Deployment owns a ReplicaSet.
 - The ReplicaSet creates replacement Pods when actual state falls below desired state.
 
+## Optional Practice: Break And Fix The Service Selector
+
+Make sure the `lab` namespace, `hello` Deployment, and `hello` Service still exist.
+
+First, inspect the Service selector:
+
+```bash
+kubectl describe svc hello -n lab
+kubectl get pods --show-labels -n lab
+kubectl get endpointslices -n lab -l kubernetes.io/service-name=hello
+```
+
+The Service selector should match the Pod label, usually `app=hello`.
+
+Now break the Service selector so it no longer matches the Pods:
+
+```bash
+kubectl patch svc hello -n lab -p '{"spec":{"selector":{"app":"does-not-match"}}}'
+kubectl get endpointslices -n lab -l kubernetes.io/service-name=hello
+```
+
+You are looking for:
+
+- The Service still exists.
+- The Pods still exist.
+- The Service has no ready backend Pod IPs.
+
+Fix the selector:
+
+```bash
+kubectl patch svc hello -n lab -p '{"spec":{"selector":{"app":"hello"}}}'
+kubectl get endpointslices -n lab -l kubernetes.io/service-name=hello
+```
+
+Why this matters:
+
+- Services find Pods with selectors and labels.
+- If labels and selectors do not match, traffic has nowhere to go.
+- The quick debugging question is: "Service exists, but does it have endpoints?"
+
 ## Optional Practice: Roll Out And Roll Back
 
 Change the nginx image version:
@@ -370,6 +462,8 @@ This is the same basic mechanism behind application deploys in real clusters.
 
 This is a separate follow-up lab. It repeats the same app shape with a YAML file instead of one command at a time.
 
+The YAML lab uses a separate namespace named `hello`. That namespace is different from the `hello` Deployment and Service created earlier in the `lab` namespace.
+
 Apply the manifest:
 
 ```bash
@@ -398,6 +492,12 @@ Open:
 http://localhost:8080
 ```
 
+If port `8080` is still being used by another port-forward command, stop the other command with `Ctrl+C` or use another local port:
+
+```bash
+kubectl port-forward -n hello svc/hello-web 8081:80
+```
+
 Clean up:
 
 ```bash
@@ -409,6 +509,7 @@ What this teaches:
 - `kubectl apply -f` sends desired state from a file to Kubernetes.
 - YAML is repeatable and reviewable.
 - The manifest adds resource requests and limits, which the one-line Deployment command skipped.
+- If a resource is created from YAML, prefer updating it through YAML so the file remains the source of truth.
 
 ## Follow-Up: Terraform App
 
@@ -441,6 +542,12 @@ terraform plan -var='replicas=3'
 ```
 
 Read the plan before applying. You should be able to predict that Terraform wants the Deployment replica count to change from two to three.
+
+Ownership note:
+
+- Terraform state records what Terraform believes it owns.
+- If you create something with `kubectl` and then create something similar with Terraform, those are not automatically the same resource.
+- Keeping namespaces separate while learning makes ownership easier to see.
 
 ## Core Mental Model
 
@@ -507,6 +614,7 @@ After the fast path, aim to explain:
 After the optional sections, also aim to explain:
 
 - How to debug a basic Pod problem with `describe`, events, and logs.
+- Why a Service can exist but still have no working backends.
 - What happens during rollout and rollback.
 - Why YAML, Terraform, and imperative commands are different ownership styles.
 - Why the same Kubernetes commands still matter when the cluster moves to EKS.
