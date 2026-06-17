@@ -441,7 +441,7 @@ Do:
 1. Read the universe map.
 2. Verify your active context and local nodes.
 3. Create the `lab` namespace.
-4. Create the `nginx-demo` Deployment.
+4. Create the `hello` Deployment.
 5. Scale it.
 6. Expose it with a `ClusterIP` Service.
 7. Inspect EndpointSlices to see which Pods back the Service.
@@ -721,7 +721,7 @@ This repo covers enough ground that a 6-week schedule is healthier than rushing 
 
 Deliverables:
 
-- Working `nginx-demo` from the walkthrough.
+- Working `hello` from the walkthrough.
 - Working `hello-k8s.yaml` app.
 - A note explaining Namespace, Deployment, ReplicaSet, Pod, Service, EndpointSlice, labels, and selector.
 - At least three intentional failures and fixes.

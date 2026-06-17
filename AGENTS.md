@@ -1,114 +1,249 @@
 # Agent Instructions
 
+## Core Operating Principles
+
+Work in small, reviewable steps.
+
+Before editing files, inspect the relevant configuration and explain what you found. Prefer a short diagnosis and plan before making changes, especially for AWS, Terraform, Kubernetes, Coder, GitHub Actions Runner Controller, or devcontainer work.
+
+Do not rewrite unrelated files. Do not make broad refactors unless explicitly asked. Prefer the smallest safe change that solves the immediate problem.
+
+When making infrastructure changes, explain:
+
+* what problem the change solves
+* where the setting lives
+* what AWS, Kubernetes, Terraform, Coder, or GitHub resource is affected
+* what the cost, security, or operational risk is
+* how to validate the change safely
+
+Do not run or suggest destructive commands unless explicitly asked. Be especially careful with commands or changes involving:
+
+* `terraform apply`
+* `terraform destroy`
+* Kubernetes deletion
+* EBS volumes
+* IAM policies
+* security groups
+* route tables
+* lifecycle settings
+* load balancers
+* NAT gateways
+* public IP addresses
+
+When uncertain, say what is known, what is assumed, and how to verify it.
+
 ## User Learning Context
 
-The user is learning AWS and has very limited AWS background. When answering AWS-related questions or making AWS infrastructure changes, explain the relevant AWS concepts and tools in practical terms before or alongside the implementation details.
+The user is learning AWS, Kubernetes, EKS, Coder, and platform engineering. The user has limited AWS and Kubernetes background, but has some Terraform experience.
 
-Assume the user may need explanations for concepts such as:
+When answering AWS, Kubernetes, Coder, or infrastructure questions, explain the practical concept before or alongside the implementation detail. Keep explanations connected to the user's immediate goal. Prefer concrete examples from this repository over abstract cloud theory.
 
-- VPCs, subnets, route tables, NAT gateways, internet gateways, and security groups
-- IAM users, roles, policies, instance profiles, IRSA, and EKS Pod Identity
-- EC2, EBS, AMIs, user data, and Systems Manager Session Manager
-- EKS clusters, managed node groups, add-ons, Kubernetes networking, load balancers, and ingress
-- Cost drivers such as EKS control plane charges, NAT gateways, EC2 instance hours, EBS volumes, public IPv4 addresses, and load balancers
+Assume the user may need explanations for:
 
-Keep explanations detailed enough to teach, but still connected to the user's immediate goal. Prefer concrete examples from this repository over abstract cloud theory.
+* VPCs, subnets, route tables, NAT gateways, internet gateways, and security groups
+* IAM users, roles, policies, instance profiles, IRSA, and EKS Pod Identity
+* EC2, EBS, AMIs, user data, and Systems Manager Session Manager
+* EKS clusters, managed node groups, add-ons, Kubernetes networking, services, load balancers, and ingress
+* Kubernetes pods, deployments, services, namespaces, labels, storage classes, persistent volumes, and persistent volume claims
+* Coder control plane resources, workspace templates, devcontainers, home volumes, and workspace startup behavior
+* GitHub Actions Runner Controller concepts such as runner scale sets, listener pods, runner pods, GitHub authentication, and autoscaling
+* Cost drivers such as EKS control plane charges, NAT gateways, EC2 instance hours, EBS volumes, public IPv4 addresses, and load balancers
+
+Keep explanations detailed enough to teach, but avoid over-explaining basic Terraform unless the concept affects the change.
+
+## Repository Context
+
+This repository is used for platform engineering work involving some combination of:
+
+* local development from a VS Code devcontainer
+* Terraform-managed infrastructure
+* AWS resources
+* Kubernetes or EKS
+* Coder workspace templates or supporting platform components
+* developer tooling such as `kubectl`, `helm`, `terraform`, `aws`, `eksctl`, `coder`, and related CLIs
+
+When reviewing the repo, first determine whether a setting is managed by:
+
+* Terraform
+* Helm values
+* raw Kubernetes YAML
+* devcontainer configuration
+* shell setup scripts
+* AWS console/manual configuration
+* Coder template configuration
+* GitHub Actions or workflow configuration
+
+When explaining a change, explicitly say where the setting lives.
+
+For detailed devcontainer and Codex troubleshooting history, see:
+
+* `docs/devcontainer-troubleshooting.md`
+* `docs/codex-troubleshooting.md`
 
 ## Local Machine Context
 
 The user is working from a MacBook Air with an Apple M2 chip.
 
-Assume the host machine is Apple Silicon (`arm64`/`aarch64`) unless the user says otherwise. Most project tooling runs inside a Linux devcontainer, so dependency scripts usually need Linux `arm64` binaries, not macOS binaries. When adding or changing setup scripts, Docker images, CLI downloads, or Kubernetes tooling, account for this architecture explicitly.
+Assume the host machine is Apple Silicon, meaning `arm64` or `aarch64`, unless the user says otherwise. Most project tooling runs inside a Linux devcontainer, so dependency scripts usually need Linux `arm64` binaries, not macOS binaries.
+
+When adding or changing setup scripts, Docker images, CLI downloads, or Kubernetes tooling, account for architecture explicitly.
 
 Practical implications:
 
-- Prefer multi-architecture Docker images that support `linux/arm64`.
-- When downloading CLIs, map architectures carefully:
-  - macOS host: `darwin-arm64` or equivalent
-  - devcontainer: `linux-arm64`, `Linux_arm64`, or `aarch64`, depending on the vendor
-  - x86 fallback: `amd64` or `x86_64`
-- Avoid assuming `linux-amd64` binaries will work.
-- If a tool only publishes x86 images or binaries, call that out and suggest an Apple Silicon-compatible alternative or an explicit emulation path.
-- For Docker Desktop Kubernetes, remember the Kubernetes cluster runs through Docker Desktop on the Mac, while `kubectl`, `helm`, `terraform`, `aws`, `eksctl`, `kind`, and `coder` run from inside the devcontainer.
+* Prefer multi-architecture Docker images that support `linux/arm64`.
+* When downloading CLIs, map architectures carefully:
 
-## VS Code Devcontainer Troubleshooting
+  * macOS host: `darwin-arm64` or equivalent
+  * devcontainer: `linux-arm64`, `Linux_arm64`, or `aarch64`, depending on the vendor
+  * x86 fallback: `amd64` or `x86_64`
+* Avoid assuming `linux-amd64` binaries will work.
+* If a tool only publishes x86 images or binaries, call that out and suggest an Apple Silicon-compatible alternative or an explicit emulation path.
+* For Docker Desktop Kubernetes, remember the Kubernetes cluster runs through Docker Desktop on the Mac, while `kubectl`, `helm`, `terraform`, `aws`, `eksctl`, `kind`, and `coder` usually run from inside the devcontainer.
 
-VS Code runs with two sides when this repository is opened in a devcontainer:
+## Python Context
 
-- The VS Code UI runs on the macOS host.
-- Workspace extensions run inside the Linux devcontainer, including Terraform, Kubernetes, Docker, and the OpenAI/Codex extension.
+Prefer `uv` for Python dependency management when applicable.
 
-If the VS Code window hangs, the Codex panel spins forever, or the app reports that the window is not responding, do not assume Codex itself is the only problem. First check whether the devcontainer and remote extension host are healthy.
+When writing Python:
 
-Known issue seen in this repo:
+* use clear names
+* prefer type hints for non-trivial functions
+* keep functions small
+* add or update tests when changing behavior
+* avoid unnecessary dependencies
+* prefer standard library solutions when reasonable
 
-- The HashiCorp Terraform extension can activate before `.devcontainer/setup.sh` has finished installing or exposing `terraform-ls`.
-- When that happens, VS Code remote extension logs may show an error like `Unable to launch language server: not found: terraform-ls`.
-- This can make the devcontainer session feel broken even though Docker and the Codex extension binary are running.
-- The repo pins `terraform.languageServer.path` to `/home/vscode/.local/bin/terraform-ls` so the Terraform extension does not depend on remote extension `PATH` timing.
-- The repo also sets `waitFor` to `postCreateCommand` so VS Code waits for `.devcontainer/setup.sh` before attaching and activating remote workspace extensions.
-- Codex on Linux expects `bubblewrap`/`bwrap` for reliable sandboxing, so `.devcontainer/setup.sh` installs the Ubuntu `bubblewrap` package. If Codex logs warn that `bubblewrap` is missing, rebuild the devcontainer and verify `bwrap` exists inside it.
-- If Codex is still broken after `codex app-server`, `bwrap`, and `terraform-ls` are healthy, check the GitHub Copilot Chat logs. A seen failure is `PendingMigrationError: navigator is now a global in nodejs` from the bundled `GitHub.copilot-chat` extension. Temporarily disable Copilot Chat/background agent features for this workspace to isolate Codex.
-- The same `PendingMigrationError` has also been seen from the `openai.chatgpt` extension itself on VS Code Server `1.124.x`. The remote extension host supports a `--supportGlobalNavigator` flag, but this devcontainer launch path did not pass it. `.devcontainer/setup.sh` includes a narrow compatibility patch for the VS Code server `extensionHostProcess.js` global `navigator` guard so Codex can activate.
-- Treat that VS Code server patch as a temporary compatibility workaround, not a permanent architecture choice. If Codex breaks again, first verify the current log still shows `PendingMigrationError: navigator is now a global in nodejs` from `openai.chatgpt` or `GitHub.copilot-chat`, then verify the patch was applied inside the active container. If a future VS Code or Codex extension version no longer throws this error, remove the patch from `.devcontainer/setup.sh`.
-
-Useful checks:
-
-- Inspect running devcontainers with `docker ps`.
-- Inspect the VS Code server and extension processes with `docker exec <container> ps -eo pid,ppid,stat,etime,comm,args`.
-- Read remote extension logs under `/home/vscode/.vscode-server/data/logs/.../exthost*/remoteexthost.log`.
-- Verify expected tools exist inside the devcontainer, especially `/home/vscode/.local/bin/terraform-ls`.
-
-Typical recovery steps:
-
-- Reopen or close the frozen VS Code window.
-- Run `Dev Containers: Rebuild Container`.
-- After the rebuild opens, run `Developer: Reload Window` if extensions still look stuck.
-- If Codex still hangs after Terraform is healthy, also check for other remote extension activation errors, such as GitHub Copilot errors.
-- If the `navigator` compatibility issue recurs, fully close all VS Code windows for this repo before rebuilding. Multiple stale remote extension hosts in one devcontainer can leave several `codex app-server` processes running and make the UI look broken even after the patch is present.
+If the code interacts with AWS, Terraform outputs, Kubernetes, or shell commands, include practical error handling and clear messages.
 
 ## Terraform Context
 
-The user has about a year of Terraform experience and understands some basic Terraform functionality. Do not over-explain the absolute basics unless asked, but do explain Terraform concepts when they affect the answer, especially:
+The user has about a year of Terraform experience and understands basic Terraform functionality. Do not over-explain absolute basics unless asked, but do explain Terraform concepts when they affect the answer.
 
-- provider configuration
-- modules
-- variables and outputs
-- state
-- data sources
-- resource dependencies
-- `plan` versus `apply`
-- lifecycle and destroy behavior
-- cost or security implications of Terraform-managed resources
+Explain Terraform concepts when relevant, especially:
 
-When reviewing or changing Terraform, explain both what the Terraform syntax does and what real AWS resources it creates or changes.
+* provider configuration
+* modules
+* variables and outputs
+* state
+* data sources
+* resource dependencies
+* `plan` versus `apply`
+* lifecycle and destroy behavior
+* cost or security implications of Terraform-managed resources
 
-## Plan Requests
+When reviewing or changing Terraform, explain both:
+
+1. what the Terraform syntax does
+2. what real AWS, Kubernetes, or Coder resources it creates or changes
+
+Before changing Terraform:
+
+* inspect the current resources, variables, providers, modules, and outputs
+* identify the likely state boundary
+* avoid changing lifecycle behavior unless explicitly requested
+* call out whether a change may force replacement
+* suggest `terraform plan` validation before apply
+
+Be especially careful with:
+
+* `prevent_destroy`
+* `ignore_changes`
+* EBS volume lifecycle
+* Kubernetes storage classes
+* IAM permissions
+* security groups
+* route tables
+* NAT gateways
+* load balancers
+* public IP addresses
+
+## Kubernetes and EKS Context
+
+Assume the user is still building Kubernetes intuition.
+
+When explaining Kubernetes, connect concepts to concrete examples:
+
+* A pod is the smallest running unit.
+* A deployment keeps pods running.
+* A service gives stable network access to pods.
+* An ingress or load balancer exposes traffic.
+* A storage class describes how persistent storage is provisioned.
+* A persistent volume claim is a pod's request for durable storage.
+* A node is the worker machine where pods run.
+
+When reviewing Kubernetes or EKS changes, explain:
+
+* whether the change affects the cluster, nodes, pods, networking, storage, or IAM
+* whether it is namespaced or cluster-wide
+* whether it is managed by Terraform, Helm, raw YAML, or AWS
+* how to inspect the live state with `kubectl`
+* how the change relates to Coder workspaces or ARC runners if relevant
+
+Prefer safe inspection commands before mutation commands.
+
+## Coder Context
+
+When working on Coder-related files, explain how changes affect:
+
+* the Coder control plane
+* workspace templates
+* workspace startup
+* devcontainers
+* persistent home volumes
+* workspace images
+* user experience for developers
+* AWS or Kubernetes resources behind the workspace
+
+For workspace templates, be especially careful with:
+
+* persistent storage
+* home volume sizing
+* workspace image architecture
+* startup scripts
+* environment variables
+* secrets
+* IAM or cloud credentials
+* Docker-in-Docker or Docker socket behavior
+* devcontainer compatibility
+
+If a Coder issue appears to be a UI problem, first check whether the workspace, devcontainer, VS Code remote extension host, and required binaries are healthy.
+
+## Plan and Documentation Requests
 
 When the user says to create an implementation plan, project plan, migration plan, or work plan, export it as a Markdown file.
 
-- Use a `plans/` folder for general implementation or work plans.
-- Use a `project-plans/` folder when the plan relates to a new or distinct project.
-- Create the folder if it does not already exist.
-- Use clear, descriptive kebab-case filenames.
-- Make the plan useful as a standalone document, with phases, goals, deliverables, and next steps where appropriate.
+Use:
+
+* `plans/` for general implementation or work plans
+* `project-plans/` for new or distinct projects
+* `guides/` for learning guides, study paths, curricula, and conceptual roadmaps
+* `docs/` for durable project documentation that is not specifically a plan or guide
+
+Create the folder if it does not already exist.
+
+Use clear, descriptive kebab-case filenames.
+
+Make plans useful as standalone documents, with phases, goals, deliverables, risks, validation steps, and next actions where appropriate.
 
 Learning material is different:
 
-- Use a `guides/` folder for durable learning guides, study paths, curricula, and conceptual roadmaps.
-- If the user says "learning plan", "study guide", "curriculum", or asks for an organized path to learn a topic, prefer `guides/` instead of `plans/`.
-- Make guides useful as long-lived reference material, with sequence, checkpoints, concepts, labs, and next steps where appropriate.
+* If the user says "learning plan", "study guide", "curriculum", or asks for an organized path to learn a topic, prefer `guides/` instead of `plans/`.
+* Make guides useful as long-lived reference material, with sequence, checkpoints, concepts, labs, and next steps.
 
 If the user only asks to discuss or brainstorm a plan, answer conversationally. If they say "create a plan", "write a plan", "export a plan", or similar, create the `.md` file.
 
-## Communication Style For This Repo
+## Communication Style
 
 Favor a teaching-oriented style. The user is trying to connect AWS, Terraform, Kubernetes, Coder, and GitHub Actions Runner Controller into a coherent platform engineering skill set.
 
 When possible, make the "so what?" explicit:
 
-- what problem this solves
-- what the user learns from it
-- what it costs or risks
-- how it relates to Coder, EKS, or ARC
-- what the next useful layer would be
+* what problem this solves
+* what the user learns from it
+* what it costs or risks
+* how it relates to Coder, EKS, or ARC
+* what the next useful layer would be
+
+Prefer concrete commands, examples, and repo-specific explanations.
+
+Do not be vague. Prefer practical next steps.

@@ -4,7 +4,7 @@ Think of Kubernetes like a small universe with layers inside layers.
 
 This page is split into small maps so each relationship is easier to read. Start with the platform boundary, then follow the control loop, workload chain, and networking path.
 
-The examples use the `lab` namespace and `nginx-demo` app from the walkthrough. The follow-up YAML app uses `hello`, and the Terraform app uses `tf-hello`, but the object relationships are the same.
+The examples use the `lab` namespace and the `hello` app from the walkthrough. The follow-up YAML lab uses a separate `hello` namespace with a `hello-web` app, and the Terraform app uses `tf-hello`, but the object relationships are the same.
 
 ## Platform Boundary
 
@@ -73,11 +73,11 @@ The control plane stores desired state and keeps working to make the real cluste
 For a Deployment, the loop is:
 
 1. You run a `kubectl` command.  
-   Example: `kubectl create deployment nginx-demo --image=nginx:1.27-alpine -n lab`
+   Example: `kubectl create deployment hello --image=nginx:1.27-alpine -n lab`
 2. `kubectl` sends a matching API request to the API server.  
-   Meaning: "create a Deployment named `nginx-demo` in the `lab` namespace."
+   Meaning: "create a Deployment named `hello` in the `lab` namespace."
 3. The API server validates the request and stores the desired state in `etcd`.  
-   You can read it back with: `kubectl get deployment nginx-demo -n lab`
+   You can read it back with: `kubectl get deployment hello -n lab`
 4. Controllers notice the desired state and create lower-level objects.  
    For a Deployment, that means a ReplicaSet and then Pods.
    You can see them with: `kubectl get replicaset,pods -n lab`
@@ -115,10 +115,10 @@ For normal application workloads, you usually create a Deployment. Kubernetes cr
 ```mermaid
 flowchart TB
   ns["Namespace<br/>lab"]
-  deploy["Deployment<br/>nginx-demo"]
+  deploy["Deployment<br/>hello"]
   rs["ReplicaSet<br/>keeps replica count"]
-  pod1["Pod<br/>nginx-demo-..."]
-  pod2["Pod<br/>nginx-demo-..."]
+  pod1["Pod<br/>hello-..."]
+  pod2["Pod<br/>hello-..."]
   container1["Container<br/>nginx"]
   container2["Container<br/>nginx"]
 
@@ -144,9 +144,9 @@ A Service does not contain Pods. It finds matching Pods by labels and gives them
 ```mermaid
 flowchart TB
   client["Client<br/>inside cluster or port-forward"]
-  svc["Service<br/>nginx-demo"]
-  selector["Selector<br/>app=nginx-demo"]
-  labels["Pod labels<br/>app=nginx-demo"]
+  svc["Service<br/>hello"]
+  selector["Selector<br/>app=hello"]
+  labels["Pod labels<br/>app=hello"]
   slice["EndpointSlice<br/>current backend Pod IPs"]
   pod1["Pod A"]
   pod2["Pod B"]
@@ -316,16 +316,16 @@ For the nginx demo in the walkthrough, the relationship looks like this:
 
 ```text
 Namespace: lab
-├── Deployment: nginx-demo
-│   └── ReplicaSet: nginx-demo-...
-│       ├── Pod: nginx-demo-...
+├── Deployment: hello
+│   └── ReplicaSet: hello-...
+│       ├── Pod: hello-...
 │       │   └── Container: nginx
-│       ├── Pod: nginx-demo-...
+│       ├── Pod: hello-...
 │       │   └── Container: nginx
-│       └── Pod: nginx-demo-...
+│       └── Pod: hello-...
 │           └── Container: nginx
 │
-└── Service: nginx-demo
+└── Service: hello
     ├── selects Pods using labels
     │   └── sends traffic to the nginx Pods
     └── EndpointSlice records current backend Pod IPs

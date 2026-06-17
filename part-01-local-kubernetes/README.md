@@ -24,9 +24,11 @@ Part 1 uses three small namespaces on purpose:
 
 | Namespace | Created By | Purpose |
 |-----------|------------|---------|
-| `lab` | Walkthrough commands | Imperative `kubectl` practice with `nginx-demo`. |
+| `lab` | Walkthrough commands | Imperative `kubectl` practice with `hello`. |
 | `hello` | `hello-k8s.yaml` | Declarative YAML practice with `hello-web`. |
 | `tf-hello` | Terraform module | Same app shape managed through Terraform state. |
+
+The walkthrough also creates a Deployment and Service named `hello` inside the `lab` namespace. That is separate from the `hello` namespace used by the YAML follow-up lab.
 
 That separation keeps each pass easy to clean up and makes the ownership model visible. Kubernetes owns the live desired state in the cluster. Terraform also keeps its own state file for the resources it manages.
 
