@@ -163,7 +163,7 @@ Create an nginx Deployment named `hello`:
 
 ```bash
 kubectl create deployment hello --image=nginx:1.27-alpine -n lab
-kubectl get deployment,pods,rs -n lab
+kubectl get all -n lab
 kubectl get pods --show-labels -n lab
 ```
 
@@ -178,6 +178,12 @@ What you just created:
 
 ```text
 Deployment -> ReplicaSet -> Pod -> Container
+```
+
+If you want to zoom in on just that chain, run:
+
+```bash
+kubectl get deploy,pods,rs -n lab
 ```
 
 The Deployment is the desired state: "keep nginx running." Kubernetes creates a ReplicaSet, and the ReplicaSet creates the Pod. The Pod runs the nginx container.
